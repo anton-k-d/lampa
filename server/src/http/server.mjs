@@ -1,5 +1,7 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
+import { stat } from 'node:fs/promises';
+import { join } from 'node:path';
 import { ConfigError } from '../config/errors.mjs';
 import { configRoute, safeIssuePath } from './config-routes.mjs';
 import { serveStatic } from './static.mjs';
@@ -42,6 +44,17 @@ export function createHomeServer({repository, service, runtimeStore, adminRoot, 
       }
       const rawPath = (req.url ?? '').split('?')[0];
       const url = new URL(req.url, 'http://local.invalid');
+      if (['/msx/start.json','/app/msx/start.json'].includes(rawPath) && ['GET','HEAD'].includes(req.method)) {
+        let available = false;
+        try { available = !!clientRoot && (await stat(join(clientRoot, 'index.html'))).isFile(); } catch {}
+        const base = `http://${req.headers.host}`;
+        const data = JSON.stringify(available
+          ? {name:'Lampa',version:'latest',parameter:`content:${base}/msx/start.json`,action:`link:${base}/app/`}
+          : {code:'BUILD_MISSING',message:'WEB build missing; run npm run build:web'});
+        res.writeHead(available ? 200 : 503, {'content-type':'application/json; charset=utf-8','content-length':Buffer.byteLength(data),'cache-control':'no-store','access-control-allow-origin':'*','x-content-type-options':'nosniff'});
+        res.end(req.method === 'HEAD' ? undefined : data);
+        return;
+      }
       if (rawPath === '/' && ['GET','HEAD'].includes(req.method)) {
         res.writeHead(302, {location:'/admin/'});
         res.end();
