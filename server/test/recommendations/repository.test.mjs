@@ -27,7 +27,7 @@ test('migration preserves existing v2 configuration data and reopens', async t =
  const {mkdtempSync,rmSync}=await import('node:fs'); const {tmpdir}=await import('node:os'); const {join}=await import('node:path');
  const dir=mkdtempSync(join(tmpdir(),'ai-migration-')); t.after(()=>rmSync(dir,{recursive:true,force:true})); const path=join(dir,'config.db');
  let db=openConfigDatabase(path); db.exec("INSERT INTO runtime_secrets VALUES('test','value','2026-01-01'); INSERT INTO runtime_lan_origins VALUES('http://example.test'); DROP TABLE ai_metadata_cache; DROP TABLE ai_batches; DROP TABLE ai_attempts; DROP TABLE ai_job_mutations; DROP TABLE ai_jobs; DROP TABLE ai_settings; DROP TABLE ai_device_signals; DROP TABLE ai_profile_devices; DROP TABLE ai_profiles; PRAGMA user_version=2"); db.close();
- db=openConfigDatabase(path); assert.equal(db.prepare('PRAGMA user_version').get().user_version,4); assert.equal(db.prepare('SELECT value FROM runtime_secrets').get().value,'value'); assert.equal(db.prepare('SELECT origin FROM runtime_lan_origins').get().origin,'http://example.test'); db.close();
+ db=openConfigDatabase(path); assert.equal(db.prepare('PRAGMA user_version').get().user_version,5); assert.equal(db.prepare('SELECT value FROM runtime_secrets').get().value,'value'); assert.equal(db.prepare('SELECT origin FROM runtime_lan_origins').get().origin,'http://example.test'); db.close();
  db=openConfigDatabase(path); assert.equal(db.prepare('SELECT COUNT(*) AS n FROM ai_profiles').get().n,1); db.close();
 });
 

@@ -149,3 +149,5 @@ th, td { text-align: left; vertical-align: top; padding: 0.5rem; border-bottom: 
 th { min-width: 7rem; }
 #diagnosticsClientDetail { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 30rem; overflow: auto; background: #f2f5f9; }
 button:disabled { opacity: 0.55; cursor: default; }
+.trace-columns { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 1rem; }
+.trace-columns pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 30rem; overflow: auto; background: #f2f5f9; padding: .5rem; }

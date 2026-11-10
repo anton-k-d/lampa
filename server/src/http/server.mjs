@@ -66,7 +66,7 @@ export function createHomeServer({repository, service, runtimeStore, adminRoot, 
         return;
       }
       if ((rawPath.startsWith('/admin/') && await serveStatic(req,res,rawPath,adminRoot,'/admin/')) || (rawPath.startsWith('/app/') && await serveStatic(req,res,rawPath,clientRoot,'/app/'))) return;
-      const result = (diagnostics && await diagnosticRoute(req,rawPath,url,diagnostics,()=>readBody(req))) || (recommendationService && await recommendationRoute(req,rawPath,url,{recommendationRepository,recommendationService,aiSettings},()=>readBody(req, rawPath.endsWith('/signals') ? 192 * 1024 : limit))) || (aiSettings && await aiAdminRoute(req,rawPath,{aiSettings,db,recommendationService},()=>readBody(req))) || await configRoute(req, rawPath, url, {repository,service,runtimeStore}, () => readBody(req));
+      const result = (diagnostics && await diagnosticRoute(req,rawPath,url,diagnostics,()=>readBody(req),recommendationService)) || (recommendationService && await recommendationRoute(req,rawPath,url,{recommendationRepository,recommendationService,aiSettings},()=>readBody(req, rawPath.endsWith('/signals') ? 192 * 1024 : limit))) || (aiSettings && await aiAdminRoute(req,rawPath,{aiSettings,db,recommendationService},()=>readBody(req))) || await configRoute(req, rawPath, url, {repository,service,runtimeStore}, () => readBody(req));
       if (!result) throw new ConfigError('NOT_FOUND','Resource not found');
       const headers = {'cache-control':'no-store', 'x-content-type-options':'nosniff'};
       if (result.etag) headers.etag = result.etag;

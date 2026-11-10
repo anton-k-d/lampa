@@ -513,11 +513,86 @@ async function loadDiagnosticAi(cursor = null) {
     const [list, summary] = await Promise.all([api(`${diagnosticsBase}/ai?${params}`), api(`${diagnosticsBase}/ai/summary`)]);
     $('diagnosticsSummary').replaceChildren(); $('diagnosticsAiRows').replaceChildren();
     for (const day of summary.days) diagnosticRow($('diagnosticsSummary'), [day.date, day.attempts, day.success, day.failed, diagnosticTokens(day)]);
-    for (const item of list.items) diagnosticRow($('diagnosticsAiRows'), [diagnosticTime(item.time), `${diagnosticValue(item.profileId)} / ${diagnosticValue(item.deviceId)}`, `${diagnosticValue(item.kind)} / ${diagnosticValue(item.model)}`, diagnosticValue(item.status), diagnosticTokens(item), item.latencyMs == null ? 'Неизвестно' : `${item.latencyMs} мс`, `Событие: ${diagnosticValue(item.id)}; задача: ${diagnosticValue(item.jobId)}; запрос: ${diagnosticValue(item.providerRequestId)}; ошибка: ${diagnosticValue(item.errorCode)}`]);
+    for (const item of list.items) {
+      const row = diagnosticRow($('diagnosticsAiRows'), [diagnosticTime(item.time), `${diagnosticValue(item.profileId)} / ${diagnosticValue(item.deviceId)}`, `${diagnosticValue(item.kind)} / ${diagnosticValue(item.model)}`, diagnosticValue(item.status), diagnosticTokens(item), item.latencyMs == null ? 'Неизвестно' : `${item.latencyMs} мс`, `Событие: ${diagnosticValue(item.id)}; задача: ${diagnosticValue(item.jobId)}; запрос: ${diagnosticValue(item.providerRequestId)}; ошибка: ${diagnosticValue(item.errorCode)}`]);
+      const cell = document.createElement('td'), button = document.createElement('button');
+      button.type = 'button'; button.textContent = `Открыть ${item.id}`; button.addEventListener('click', () => openAiTrace(item.id)); cell.appendChild(button); row.appendChild(cell);
+    }
     diagnosticAiCursor = list.nextCursor; $('diagnosticsAiNext').disabled = !diagnosticAiCursor;
     $('diagnosticsAiStatus').textContent = list.items.length ? 'Журнал загружен.' : 'Событий нет.';
   } catch { $('diagnosticsAiStatus').textContent = 'Не удалось загрузить журнал ИИ. Попробуйте обновить.'; }
 }
+let aiTraceSelection = 0, aiTraceDetail = null, aiTracePending = null, aiTraceBusy = false;
+function traceUuid() {
+  if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  if (globalThis.crypto?.getRandomValues) crypto.getRandomValues(bytes);
+  else for (let i = 0; i < bytes.length; i++) bytes[i] = Math.floor(Math.random() * 256);
+  bytes[6] = (bytes[6] & 15) | 64; bytes[8] = (bytes[8] & 63) | 128;
+  const h = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  return `${h.slice(0,8)}-${h.slice(8,12)}-${h.slice(12,16)}-${h.slice(16,20)}-${h.slice(20)}`;
+}
+function traceMeta(detail) {
+  const e = detail.event || {}, t = detail.trace;
+  return `Событие: ${diagnosticValue(e.id)}; родитель: ${diagnosticValue(detail.parentEventId)}; модель: ${diagnosticValue(e.model)}; результат: ${diagnosticValue(e.status)}; токены вход / выход / всего / кэш: ${diagnosticTokens(e)}; длительность: ${e.latencyMs == null ? 'Неизвестно' : e.latencyMs + ' мс'}; HTTP: ${diagnosticValue(t?.httpStatus)}; захват: ${diagnosticValue(t?.capture)}; обрезано: ${t?.truncated ? 'Да' : 'Нет'}; очищено: ${t?.redacted ? 'Да' : 'Нет'}; ошибка транспорта: ${diagnosticValue(t?.transportError)}`;
+}
+function updateTraceControls() {
+  const usable = aiTraceDetail?.trace && !aiTraceDetail.trace.truncated && !aiTraceDetail.trace.redacted;
+  $('aiTraceReplay').disabled = aiTraceBusy || !usable || !$('aiTraceModel').value;
+  $('aiTraceModel').disabled = aiTraceBusy || !$('aiTraceModel').options.length;
+}
+async function openAiTrace(id) {
+  const selection = ++aiTraceSelection;
+  aiTraceDetail = null; aiTracePending = null; aiTraceBusy = false;
+  $('aiTraceStatus').textContent = 'Загрузка события…';
+  for (const name of ['aiTraceMeta','aiTraceRequest','aiTraceResponse','aiComparisonMeta','aiComparisonResponse']) $(name).textContent = '';
+  $('aiTraceModel').replaceChildren(); updateTraceControls();
+  const detailPromise = api(`${diagnosticsBase}/ai/${encodeURIComponent(id)}`);
+  const modelsPromise = api(`${diagnosticsBase}/ai/models`).catch(() => null);
+  try {
+    const detail = await detailPromise;
+    if (selection !== aiTraceSelection) return;
+    aiTraceDetail = detail;
+    $('aiTraceMeta').textContent = traceMeta(detail);
+    if (detail.trace) {
+      $('aiTraceRequest').textContent = detail.trace.requestBody ?? '';
+      $('aiTraceResponse').textContent = detail.trace.responseBody ?? 'Ответ отсутствует.';
+      $('aiTraceStatus').textContent = detail.trace.truncated || detail.trace.redacted ? 'Трасса обрезана или очищена; сравнение недоступно.' : 'Трасса загружена.';
+    } else $('aiTraceStatus').textContent = 'Для этого события нет сохранённой трассы.';
+    const models = await modelsPromise;
+    if (selection !== aiTraceSelection) return;
+    if (Array.isArray(models?.models)) for (const model of models.models) {
+      const option = document.createElement('option'); option.value = model; option.textContent = model; $('aiTraceModel').appendChild(option);
+    }
+    if (!models || !$('aiTraceModel').options.length) $('aiTraceStatus').textContent += ' Не удалось загрузить модели для сравнения.';
+    updateTraceControls();
+  } catch {
+    if (selection !== aiTraceSelection) return;
+    $('aiTraceStatus').textContent = 'Не удалось открыть событие.'; updateTraceControls();
+  }
+}
+$('aiTraceModel').addEventListener('change', () => { aiTracePending = null; updateTraceControls(); });
+$('aiTraceReplay').addEventListener('click', async () => {
+  if (aiTraceBusy || $('aiTraceReplay').disabled) return;
+  const selection = aiTraceSelection, source = aiTraceDetail.event.id, model = $('aiTraceModel').value;
+  aiTracePending ||= {source, model, key: traceUuid()};
+  const mutation = aiTracePending; aiTraceBusy = true; updateTraceControls();
+  $('aiTraceStatus').textContent = 'Сравнение выполняется…';
+  try {
+    const result = await api(`${diagnosticsBase}/ai/${encodeURIComponent(source)}/replay`, json('POST', {model}, {'Idempotency-Key': mutation.key}));
+    const detail = await api(`${diagnosticsBase}/ai/${encodeURIComponent(result.eventId)}`);
+    if (selection !== aiTraceSelection) return;
+    $('aiComparisonMeta').textContent = traceMeta(detail);
+    $('aiComparisonResponse').textContent = detail.trace?.responseBody ?? 'Ответ отсутствует.';
+    const status = detail.event?.status;
+    if (status === 'success') { $('aiTraceStatus').textContent = 'Сравнение завершено.'; aiTracePending = null; }
+    else if (status === 'running') $('aiTraceStatus').textContent = 'Сравнение ещё выполняется. Повторите запрос, чтобы проверить результат.';
+    else $('aiTraceStatus').textContent = `Сравнение завершилось с ошибкой: ${diagnosticValue(detail.event?.errorCode)}.`;
+  } catch (e) {
+    if (selection !== aiTraceSelection) return;
+    $('aiTraceStatus').textContent = `Не удалось выполнить или загрузить сравнение: ${e.message}. Повтор использует тот же запрос.`;
+  } finally { if (selection === aiTraceSelection) { aiTraceBusy = false; updateTraceControls(); } }
+});
 async function loadDiagnosticClients(cursor = null) {
   $('diagnosticsClientStatus').textContent = 'Загрузка…'; $('diagnosticsClientNext').disabled = true;
   try {
