@@ -19,7 +19,7 @@ test('migration preserves revisions and runtime refs persist without exposing va
   assert.equal(store.readSecret(ref),'private-value'); assert.equal(JSON.stringify(store.secretStatus()).includes('private-value'),false);
   assert.equal(statSync(dir).mode & 0o777,0o700); assert.equal(statSync(path).mode & 0o777,0o600); db.close();
   db=openConfigDatabase(path); t.after(()=>db.close()); const reopened=createRuntimeStore(db);
-  assert.deepEqual(createConfigRepository(db).getHead('global'),revision); assert.equal(db.prepare('PRAGMA user_version').get().user_version,3);
+  assert.deepEqual(createConfigRepository(db).getHead('global'),revision); assert.equal(db.prepare('PRAGMA user_version').get().user_version,4);
   assert.ok(reopened.context.secretRefs.has(ref)); assert.ok(reopened.context.secretRefs.has(ref2)); assert.equal(reopened.readSecret(ref2),'rotated-value');
   assert.deepEqual([...reopened.context.providerIds],['tmdb']); assert.equal(reopened.context.reviewedPlugins.size,0);
 });

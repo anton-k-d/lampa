@@ -21,7 +21,7 @@ export function openConfigDatabase(path) {
     db = new DatabaseSync(path);
     db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL');
     const version = db.prepare('PRAGMA user_version').get().user_version;
-    if (version > 3) throw new ConfigError('UNSUPPORTED_DB_VERSION', 'Unsupported database version');
+    if (version > 4) throw new ConfigError('UNSUPPORTED_DB_VERSION', 'Unsupported database version');
     db.exec('PRAGMA journal_mode=WAL');
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -48,7 +48,9 @@ export function openConfigDatabase(path) {
         CREATE TABLE IF NOT EXISTS ai_attempts (id TEXT PRIMARY KEY, job_id TEXT REFERENCES ai_jobs(id), profile_id TEXT REFERENCES ai_profiles(id), budget_date TEXT NOT NULL, outcome TEXT NOT NULL, usage_json TEXT);
         CREATE TABLE IF NOT EXISTS ai_batches (id TEXT PRIMARY KEY, profile_id TEXT NOT NULL REFERENCES ai_profiles(id), kind TEXT NOT NULL, cache_key TEXT NOT NULL, items_json TEXT NOT NULL, provenance_json TEXT NOT NULL, generated_at TEXT NOT NULL, expires_at TEXT);
         CREATE TABLE IF NOT EXISTS ai_metadata_cache (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, fetched_at TEXT NOT NULL, expires_at TEXT NOT NULL);
-        PRAGMA user_version=3`);
+        CREATE TABLE IF NOT EXISTS diagnostic_client_logs (id TEXT PRIMARY KEY, device_id TEXT NOT NULL, received_at TEXT NOT NULL, snapshot_json TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS diagnostic_ai_events (id TEXT PRIMARY KEY, time TEXT NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL, event_json TEXT NOT NULL);
+        PRAGMA user_version=4`);
       db.exec('COMMIT');
     } catch (error) { db.exec('ROLLBACK'); throw error; }
     return db;

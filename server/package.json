@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "node src/main.mjs",
-    "test": "node --test test/config/*.test.mjs test/runtime/*.test.mjs test/http/*.test.mjs test/recommendations/*.test.mjs test/client/*.test.mjs",
+    "test": "node --test test/config/*.test.mjs test/runtime/*.test.mjs test/http/*.test.mjs test/recommendations/*.test.mjs test/diagnostics/*.test.mjs test/client/*.test.mjs",
     "test:browser": "playwright test"
   },
   "dependencies": {
