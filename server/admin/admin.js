@@ -456,6 +456,7 @@ load();
 loadOrigins();
 
 let aiRevision = 0;
+let aiPromptsAvailable = false, aiDefaultPrompts = {};
 async function loadAI() {
   try { const result = await api('/v1/admin/ai/config'); aiRevision=result.revision;
     const d=result.document; $('aiEnabled').checked=d.enabled; $('aiModel').value=d.model;
@@ -463,17 +464,35 @@ async function loadAI() {
     $('aiProfileLimit').value=d.limits.profileAttempts; $('aiServerLimit').value=d.limits.serverAttempts;
     $('aiHomeLimit').value=d.limits.manualHome; $('aiSimilarLimit').value=d.limits.similar;
     $('aiKey').value=''; $('aiRemoveKey').checked=false;
+    aiPromptsAvailable = typeof d.prompts?.home === 'string' && typeof d.prompts?.similar === 'string';
+    aiDefaultPrompts = result.defaultPrompts || {};
+    for (const [kind, field, reset] of [['home', 'aiHomePrompt', 'aiResetHomePrompt'], ['similar', 'aiSimilarPrompt', 'aiResetSimilarPrompt']]) {
+      $(field).disabled = !aiPromptsAvailable;
+      $(field).value = aiPromptsAvailable ? d.prompts[kind] : '';
+      $(reset).disabled = !aiPromptsAvailable || typeof aiDefaultPrompts[kind] !== 'string';
+    }
     $('aiKeyStatus').textContent=result.configured?'Ключ сохранён. Пустое поле сохранит его.':'Ключ не задан.';
   } catch { $('aiStatus').textContent='Не удалось загрузить настройки ИИ.'; }
 }
 $('aiForm').addEventListener('submit',async event=>{
   event.preventDefault();
   const document={schemaVersion:1,enabled:$('aiEnabled').checked,model:$('aiModel').value,locale:$('aiLocale').value,timezone:'Europe/Moscow',schedule:$('aiSchedule').value,limits:{profileAttempts:Number($('aiProfileLimit').value),serverAttempts:Number($('aiServerLimit').value),manualHome:Number($('aiHomeLimit').value),similar:Number($('aiSimilarLimit').value)}};
+  if (aiPromptsAvailable) {
+    document.prompts = {home:$('aiHomePrompt').value, similar:$('aiSimilarPrompt').value};
+    if (!document.prompts.home.trim() || !document.prompts.similar.trim()) { $('aiStatus').textContent='Промпты не могут быть пустыми.'; return; }
+  }
   const payload={document,removeKey:$('aiRemoveKey').checked}; if($('aiKey').value)payload.key=$('aiKey').value;
   try {await api('/v1/admin/ai/config',json('PUT',payload,{'If-Match':`"r-${aiRevision}"`})); await loadAI(); $('aiStatus').textContent='Настройки ИИ сохранены.';}
   catch(e){$('aiStatus').textContent=e.code==='REVISION_CONFLICT'?'Настройки изменены в другом окне; ваши изменения остались в форме.':e.message;}
 });
 loadAI();
+
+for (const [kind, field, reset] of [['home', 'aiHomePrompt', 'aiResetHomePrompt'], ['similar', 'aiSimilarPrompt', 'aiResetSimilarPrompt']]) {
+  $(reset).addEventListener('click', () => {
+    $(field).value = aiDefaultPrompts[kind];
+    $('aiStatus').textContent = 'Промпт по умолчанию восстановлен; сохраните настройки, чтобы применить.';
+  });
+}
 
 $('aiTest').addEventListener('click',async()=>{ try { $('aiStatus').textContent='Проверка…'; const result=await api('/v1/admin/ai/test',{method:'POST'}); $('aiStatus').textContent=result.state==='ready'?'Модель доступна.':'Проверка не удалась.'; } catch(e){$('aiStatus').textContent=e.message;} });
 
