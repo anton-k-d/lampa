@@ -14,6 +14,7 @@ import Timer from '../timer'
 import Lang from '../lang'
 import LoadingProgress from '../../interaction/loading_progress'
 
+let recommendationReady = false
 let bookmarks     = [] // имеет вид [{id, cid, card_id, type, data, profile, time},...]
 let bookmarks_map = {} // имеет вид {type: {card_id: bookmark, ...}, ...}
 
@@ -90,6 +91,7 @@ function init(){
     })
 
     Listener.follow('profile_select', ()=>{
+        recommendationReady = false
         bookmarks = []
         bookmarks_map = {}
 
@@ -154,6 +156,7 @@ function loadFromCache(call){
     if(bookmarks.length) return call && call()
 
     Cache.getData('other', 'account_bookmarks_' + Permit.account.profile.id).then((data)=>{
+        recommendationReady = Array.isArray(data)
         bookmarks = data && data.length ? data : []
 
         console.log('Account', 'bookmarks cache load:', bookmarks.length, 'data:', data ? 'yes' : 'no')
@@ -224,6 +227,7 @@ function update(call){
 
                         // Переводим строки с .data в объект, обновляем локальный кэш и карту
                         rawToCard(e.data.bookmarks,()=>{
+                            recommendationReady = true
                             saveToCache(e.data.version)
 
                             if(call && typeof call == 'function') call()
@@ -517,5 +521,6 @@ export default {
     get,
     all,
     sync,
-    find
+    find,
+    recommendationReady: ()=>recommendationReady
 }

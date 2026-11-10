@@ -170,6 +170,11 @@
         <p>Разрешённые HTTP origin:</p>
         <ul id="allowedOrigins"></ul>
       </section>
+      <section><h2>ИИ-подборки</h2><form id="aiForm">
+        <label class="check"><input id="aiEnabled" type="checkbox" /> Включить подборки</label><div class="grid">
+        <label>Модель<input id="aiModel" value="gpt-4.1-mini" readonly /></label><label>Язык<input id="aiLocale" value="ru-RU" /></label><label>Время (Москва)<input id="aiSchedule" type="time" value="04:00" /></label><label>Ключ OpenAI<input id="aiKey" type="password" autocomplete="new-password" /></label>
+        <label>Попыток на профиль<input id="aiProfileLimit" type="number" min="0" max="1000" /></label><label>Попыток на сервер<input id="aiServerLimit" type="number" min="0" max="1000" /></label><label>Обновлений главной<input id="aiHomeLimit" type="number" min="0" max="1000" /></label><label>Похожих подборок<input id="aiSimilarLimit" type="number" min="0" max="1000" /></label></div>
+        <label class="check"><input id="aiRemoveKey" type="checkbox" /> Удалить ключ</label><p class="hint" id="aiKeyStatus"></p><button type="submit">Сохранить настройки ИИ</button><button type="button" id="aiTest">Тест подключения OpenAI</button><p id="aiStatus" role="status"></p></form></section>
       <section>
         <h2>История</h2>
         <button id="history" type="button">Обновить историю</button>

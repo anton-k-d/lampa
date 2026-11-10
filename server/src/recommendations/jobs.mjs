@@ -1,0 +1,20 @@
+import { randomUUID, createHash } from 'node:crypto';
+import { ConfigError } from '../config/errors.mjs';
+const iso=n=>new Date(n).toISOString();
+const hash=s=>createHash('sha256').update(s).digest('hex');
+export function createJobs(db) {
+ const tx=fn=>{db.exec('BEGIN IMMEDIATE');try{const v=fn();db.exec('COMMIT');return v;}catch(e){db.exec('ROLLBACK');throw e;}};
+ const countAttempts=(profile,date)=>db.prepare('SELECT count(*) AS n FROM ai_attempts WHERE profile_id=? AND budget_date=?').get(profile,date).n;
+ function enqueue({profileId,kind,cacheKey,mutationId,now=new Date(),requestDigest=hash(`${kind}:${cacheKey}`)}) { return tx(()=>{
+  const prior=db.prepare('SELECT j.*,m.request_digest AS alias_digest FROM ai_job_mutations m JOIN ai_jobs j ON j.id=m.job_id WHERE m.profile_id=? AND m.mutation_id=?').get(profileId,mutationId);
+  if(prior){if(prior.alias_digest!==requestDigest) throw new ConfigError('IDEMPOTENCY_MISMATCH','Idempotency key reused');return {jobId:prior.id,state:prior.state};}
+  const active=db.prepare("SELECT * FROM ai_jobs WHERE profile_id=? AND kind=? AND (?='home' OR cache_key=?) AND state IN ('queued','running')").get(profileId,kind,kind,cacheKey);
+  if(active){db.prepare('INSERT INTO ai_job_mutations(profile_id,mutation_id,request_digest,job_id) VALUES(?,?,?,?)').run(profileId,mutationId,requestDigest,active.id);return {jobId:active.id,state:active.state};}
+  const id=randomUUID();db.prepare("INSERT INTO ai_jobs(id,profile_id,kind,cache_key,mutation_id,request_digest,state,lease_until,fencing_token,attempts,created_at,error_code) VALUES(?,?,?,?,?,?,'queued',NULL,0,0,?,NULL)").run(id,profileId,kind,cacheKey,mutationId,requestDigest,iso(now));db.prepare('INSERT INTO ai_job_mutations(profile_id,mutation_id,request_digest,job_id) VALUES(?,?,?,?)').run(profileId,mutationId,requestDigest,id);return {jobId:id,state:'queued'};
+ }); }
+ function claim(now=new Date()) { return tx(()=>{const row=db.prepare("SELECT * FROM ai_jobs WHERE state='queued' OR (state='running' AND lease_until<=?) ORDER BY created_at LIMIT 1").get(iso(now));if(!row)return null; const token=row.fencing_token+1;db.prepare("UPDATE ai_jobs SET state='running',lease_until=?,fencing_token=? WHERE id=?").run(iso(+new Date(now)+240000),token,row.id);return {...row,fencing_token:token,state:'running'};}); }
+ function reserve(job,date,profileLimit,serverLimit) { return tx(()=>{const current=db.prepare("SELECT * FROM ai_jobs WHERE id=? AND state='running' AND fencing_token=?").get(job.id,job.fencing_token);if(!current)return false; if(countAttempts(job.profile_id,date)>=profileLimit || db.prepare('SELECT count(*) AS n FROM ai_attempts WHERE budget_date=?').get(date).n>=serverLimit)return false;db.prepare("INSERT INTO ai_attempts(id,job_id,profile_id,budget_date,outcome,usage_json) VALUES(?,?,?,?,?,NULL)").run(randomUUID(),job.id,job.profile_id,date,'reserved');db.prepare('UPDATE ai_jobs SET attempts=attempts+1 WHERE id=?').run(job.id);return true;}); }
+ function finish(job,{items,provenance={},expiresAt,errorCode,now=new Date()}) { return tx(()=>{const current=db.prepare("SELECT * FROM ai_jobs WHERE id=? AND state='running' AND fencing_token=? AND lease_until>?").get(job.id,job.fencing_token,iso(now));if(!current)return false; if(items) db.prepare('INSERT INTO ai_batches(id,profile_id,kind,cache_key,items_json,provenance_json,generated_at,expires_at) VALUES(?,?,?,?,?,?,?,?)').run(randomUUID(),job.profile_id,job.kind,job.cache_key,JSON.stringify(items),JSON.stringify(provenance),iso(now),iso(expiresAt));db.prepare('UPDATE ai_jobs SET state=?,error_code=?,lease_until=NULL WHERE id=?').run(items?'ready':'failed',errorCode??null,job.id);return true;}); }
+ function outcome(job,outcome,usage=null){db.prepare("UPDATE ai_attempts SET outcome=?,usage_json=? WHERE id=(SELECT id FROM ai_attempts WHERE job_id=? ORDER BY rowid DESC LIMIT 1) AND EXISTS (SELECT 1 FROM ai_jobs WHERE id=? AND state='running' AND fencing_token=?)").run(outcome,usage?JSON.stringify(usage):null,job.id,job.id,job.fencing_token);}
+ return {enqueue,claim,reserve,finish,countAttempts,outcome};
+}

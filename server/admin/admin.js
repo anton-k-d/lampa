@@ -454,3 +454,25 @@ $("import").addEventListener("click", async () => {
 });
 load();
 loadOrigins();
+
+let aiRevision = 0;
+async function loadAI() {
+  try { const result = await api('/v1/admin/ai/config'); aiRevision=result.revision;
+    const d=result.document; $('aiEnabled').checked=d.enabled; $('aiModel').value=d.model;
+    $('aiLocale').value=d.locale; $('aiSchedule').value=d.schedule;
+    $('aiProfileLimit').value=d.limits.profileAttempts; $('aiServerLimit').value=d.limits.serverAttempts;
+    $('aiHomeLimit').value=d.limits.manualHome; $('aiSimilarLimit').value=d.limits.similar;
+    $('aiKey').value=''; $('aiRemoveKey').checked=false;
+    $('aiKeyStatus').textContent=result.configured?'Ключ сохранён. Пустое поле сохранит его.':'Ключ не задан.';
+  } catch { $('aiStatus').textContent='Не удалось загрузить настройки ИИ.'; }
+}
+$('aiForm').addEventListener('submit',async event=>{
+  event.preventDefault();
+  const document={schemaVersion:1,enabled:$('aiEnabled').checked,model:$('aiModel').value,locale:$('aiLocale').value,timezone:'Europe/Moscow',schedule:$('aiSchedule').value,limits:{profileAttempts:Number($('aiProfileLimit').value),serverAttempts:Number($('aiServerLimit').value),manualHome:Number($('aiHomeLimit').value),similar:Number($('aiSimilarLimit').value)}};
+  const payload={document,removeKey:$('aiRemoveKey').checked}; if($('aiKey').value)payload.key=$('aiKey').value;
+  try {await api('/v1/admin/ai/config',json('PUT',payload,{'If-Match':`"r-${aiRevision}"`})); await loadAI(); $('aiStatus').textContent='Настройки ИИ сохранены.';}
+  catch(e){$('aiStatus').textContent=e.code==='REVISION_CONFLICT'?'Настройки изменены в другом окне; ваши изменения остались в форме.':e.message;}
+});
+loadAI();
+
+$('aiTest').addEventListener('click',async()=>{ try { $('aiStatus').textContent='Проверка…'; const result=await api('/v1/admin/ai/test',{method:'POST'}); $('aiStatus').textContent=result.state==='ready'?'Модель доступна.':'Проверка не удалась.'; } catch(e){$('aiStatus').textContent=e.message;} });

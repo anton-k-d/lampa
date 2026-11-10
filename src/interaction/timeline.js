@@ -92,7 +92,7 @@ function link(card, season, episode){
     // так же чистит сервер, держим ключ одинаковым на клиенте и на сервере
     key = key.toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 64)
 
-    let result = {card: key}
+    let result = {card: key, source: source}
 
     if(type == 'tv'){
         season  = parseInt(season)
@@ -118,6 +118,7 @@ function linked(obj){
 
     if(obj && obj.card){
         result.card = obj.card
+        if(typeof obj.source === 'string') result.source = obj.source
 
         if(typeof obj.season !== 'undefined')  result.season  = obj.season
         if(typeof obj.episode !== 'undefined') result.episode = obj.episode
@@ -181,6 +182,9 @@ function update(params){
     // Привязка к карточке необязательна: старые записи и сторонние плагины работают только по хешу
     if(params.card){
         road.card = params.card + ''
+        // A source-less update must not inherit provenance from an older link.
+        if(typeof params.source === 'string') road.source = params.source
+        else delete road.source
 
         if(typeof params.season !== 'undefined')  road.season  = params.season
         if(typeof params.episode !== 'undefined') road.episode = params.episode

@@ -24,20 +24,6 @@ export default {
                 }
 
                 options.push({
-                    title: Lang.translate('title_recomendations'),
-                    onSelect: ()=>{
-                        Controller.toggle('content')
-
-                        Activity.push({
-                            url: '',
-                            title: Lang.translate('title_recomendations'),
-                            component: 'ai_recommendations',
-                            card: this.card
-                        })
-                    }
-                })
-
-                options.push({
                     title: Lang.translate('title_facts'),
                     onSelect: ()=>{
                         Controller.toggle('content')

@@ -17,6 +17,7 @@ import episodes from '../components/episodes'
 import myperson from '../components/myperson'
 import ai_facts from '../components/facts'
 import ai_recommendations from '../components/recommendations'
+import home_recommendations from '../components/home_recommendations'
 import discuss from '../components/discuss'
 import recomend from '../components/recomend'
 import watch_history from '../components/watch_history'
@@ -41,6 +42,7 @@ let component = {
     myperson,
     ai_facts,
     ai_recommendations,
+    home_recommendations,
     discuss,
     recomend,
     watch_history

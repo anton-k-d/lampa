@@ -99,6 +99,8 @@ import Ai from './core/api/sources/ai'
 import Mirrors from './core/mirrors'
 import Task from './core/loading'
 import HomeConfig from './core/home/config.mjs'
+import {initRecommendations} from './core/home/recommendations/client.mjs'
+import {registerRecommendationRow,registerRecommendationSettings} from './core/home/recommendations/rows.mjs'
 import HomeSettings from './interaction/home_settings'
 import App from './interaction/app'
 import LoadingProgress from './interaction/loading_progress'
@@ -539,6 +541,10 @@ function startApp(){
 
     Favorite.init()
     LoadingProgress.status('Favorite init')
+
+    initRecommendations({Favorite,Timeline,Storage,Account,listener:Lampa.Listener})
+    registerRecommendationRow(ContentRows)
+    registerRecommendationSettings(SettingsApi)
 
     Background.init()
     LoadingProgress.status('Background init')

@@ -18,6 +18,7 @@ import Reactions from './start/reactios'
 import Translations from './start/translations'
 import Bookmarks from './start/bookmarks'
 import Buttons from './start/buttons'
+import HomeRecommendations from './start/home_recommendations'
 
 class Start extends Emit {
     constructor(data) {
@@ -43,6 +44,7 @@ class Start extends Emit {
         this.use(Bookmarks)
         this.use(Reactions)
         this.use(Buttons)
+        this.use(HomeRecommendations)
 
         this.emit('init')
     }
