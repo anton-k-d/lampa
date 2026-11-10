@@ -1,7 +1,7 @@
 import { createServer } from 'node:http';
 import { randomUUID } from 'node:crypto';
 import { ConfigError } from '../config/errors.mjs';
-import { configRoute } from './config-routes.mjs';
+import { configRoute, safeIssuePath } from './config-routes.mjs';
 import { serveStatic } from './static.mjs';
 
 const limit = 262144;
@@ -27,7 +27,7 @@ async function readBody(req) {
   catch { throw new ConfigError('BAD_REQUEST','Invalid JSON'); }
 }
 function safeIssues(issues) {
-  return issues?.map(issue => ({path:issue.code === 'unsupported_capability' ? issue.path : '',code:issue.code,message:issue.message}));
+  return issues?.map(issue => ({path:safeIssuePath(issue),code:issue.code,message:issue.message}));
 }
 export function createHomeServer({repository, service, runtimeStore, adminRoot, clientRoot, allowedHosts = ['127.0.0.1','localhost']}) {
   const hosts = new Set([...allowedHosts].map(host => host.toLowerCase()));

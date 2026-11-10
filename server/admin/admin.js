@@ -165,18 +165,29 @@ async function preview(doc) {
     "/v1/admin/config/validate",
     json("POST", { scopeKey: scopeKey(), document: doc }),
   );
-  if (
-    !result.valid &&
-    result.issues.some(
-      (issue) => issue.message === "Enabled integration requires an endpoint",
-    )
-  )
-    throw new Error(
-      "Для включённой службы укажите адрес или выберите выключение / наследование.",
-    );
   if (!result.valid)
     throw new Error(
-      "Проверьте настройки: " + result.issues.map((x) => x.message).join("; "),
+      "Проверьте настройки: " + result.issues.map((issue) => {
+        if (issue.message === "Enabled integration requires an endpoint")
+          return "Для включённой службы укажите адрес или выберите выключение / наследование.";
+        if (issue.code !== "url_policy") return issue.message;
+        const labels = {
+          "/metadata/endpoint/url": "TMDB Proxy URL",
+          "/parser/endpoint/url": "Jackett URL",
+          "/torrServer/primary/url": "TorrServer URL",
+          "/torrServer/backup/url": "Резервный TorrServer URL",
+        };
+        const label = labels[issue.path] || "URL подключения";
+        const inputIds = {"/metadata/endpoint/url":"tmdb", "/parser/endpoint/url":"jackett", "/torrServer/primary/url":"torr"};
+        const value = issue.path.split("/").slice(1).reduce((current, key) => current?.[key], doc.values);
+        const detail = "проверьте URL в действующих настройках: для HTTP отдельно разрешите origin (http://IP:порт) в разделе ниже; уберите имя пользователя, пароль, параметры запроса и фрагмент.";
+        const id = inputIds[issue.path];
+        if (id && value) {
+          $(id + "-error").textContent = detail;
+          $(id).setAttribute("aria-invalid", "true");
+        }
+        return `${label}: ${detail}`;
+      }).join("; "),
     );
 }
 async function validate() {
@@ -306,12 +317,29 @@ $("scope").addEventListener("change", () => {
 $("load").addEventListener("click", load);
 $("history").addEventListener("click", history);
 $("validate").addEventListener("click", validate);
+function showOrigins(origins) {
+  $("allowedOrigins").replaceChildren();
+  for (const origin of origins) {
+    const item = document.createElement("li");
+    item.textContent = origin;
+    $("allowedOrigins").append(item);
+  }
+}
+async function loadOrigins() {
+  try { showOrigins((await api("/v1/admin/lan-origins")).origins); }
+  catch { $("originStatus").textContent = "Не удалось загрузить разрешённые HTTP origin."; }
+}
 $("allow").addEventListener("click", async () => {
+  if (!$("origin").value.trim().startsWith("http://")) {
+    $("originStatus").textContent = "Укажите origin со схемой HTTP, например http://192.168.1.10:8090 (без пути).";
+    return;
+  }
   try {
-    await api(
+    const result = await api(
       "/v1/admin/lan-origins",
       json("POST", { origin: $("origin").value.trim() }),
     );
+    showOrigins(result.origins);
     $("originStatus").textContent = "HTTP разрешён отдельно от настроек.";
   } catch (e) {
     $("originStatus").textContent = e.message;
@@ -376,3 +404,4 @@ $("import").addEventListener("click", async () => {
   }
 });
 load();
+loadOrigins();

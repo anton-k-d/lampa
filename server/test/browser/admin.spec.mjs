@@ -379,3 +379,59 @@ test("службы можно отключить при удалении адр�
   expect(result.document.values.parser.enabled).toBe(true);
   expect(result.document.values.torrServer.enabled).toBe(true);
 });
+
+test("ошибка HTTP указывает подключение и отдельное разрешение; после разрешения адрес сохраняется", async ({ page }) => {
+  await page.goto(base + "/admin/");
+  await expect(page.locator("#status")).toContainText("Открыта");
+  await page.locator("#jackett").fill("http://192.168.1.19:9117/api");
+  await page.locator(".primary").click();
+  await expect(page.locator("#status")).toContainText("Jackett");
+  await expect(page.locator("#status")).toContainText("разреш");
+  await expect(page.locator("#jackett-error")).toContainText("разреш");
+  expect((await (await page.request.get(base + "/v1/admin/lan-origins")).json()).origins).not.toContain("http://192.168.1.19:9117");
+  await page.locator("#origin").fill("http://192.168.1.19:9117");
+  await page.locator("#allow").click();
+  await expect(page.locator("#originStatus")).toContainText("разрешён");
+  await expect(page.locator("#allowedOrigins")).toContainText("http://192.168.1.19:9117");
+  await page.locator(".primary").click();
+  await expect(page.locator("#status")).toContainText("Сохранено");
+  await page.reload();
+  await expect(page.locator("#jackett")).toHaveValue("http://192.168.1.19:9117/api");
+  await page.locator("#jackett").fill("https://example.test/?token=synthetic-secret#fragment");
+  await page.locator(".primary").click();
+  await expect(page.locator("#status")).toContainText("параметр");
+  await expect(page.locator("#status")).not.toContainText("synthetic-secret");
+});
+
+test("origin без схемы показывает пример HTTP", async ({ page }) => {
+  await page.goto(base + "/admin/");
+  await page.locator("#origin").fill("192.168.88.216:8090");
+  await page.locator("#allow").click();
+  await expect(page.locator("#originStatus")).toContainText("http://");
+  await expect(page.locator("#originStatus")).not.toContainText("192.168.88.216");
+});
+
+test("несколько ошибок показаны вместе", async ({ page }) => {
+  await page.goto(base + "/admin/");
+  await expect(page.locator("#status")).toContainText("Открыта");
+  await page.locator("#jackett").fill("http://192.168.1.27:9117");
+  await page.locator("#torr").fill("");
+  await page.locator("#torrEnabled").selectOption("true");
+  await page.locator("#validate").click();
+  await expect(page.locator("#status")).toContainText("укажите адрес");
+  await expect(page.locator("#status")).toContainText("Jackett");
+  await expect(page.locator("#jackett-error")).toContainText("разреш");
+});
+
+test("ошибка унаследованного адреса не помечает пустое поле устройства", async ({ page }) => {
+  await page.goto(base + "/admin/");
+  await expect(page.locator("#status")).toContainText("Открыта");
+  await page.locator("#scope").selectOption("device");
+  await page.locator("#device").fill("inherited-diagnostic");
+  await page.locator("#load").click();
+  await expect(page.locator("#status")).toContainText("Открыта");
+  await page.route("**/v1/admin/config/validate", route => route.fulfill({json:{valid:false,issues:[{path:"/parser/endpoint/url",code:"url_policy",message:"Endpoint URL violates policy"}]}}));
+  await page.locator("#validate").click();
+  await expect(page.locator("#status")).toContainText("действующих настройках");
+  await expect(page.locator("#jackett-error")).toHaveText("");
+});

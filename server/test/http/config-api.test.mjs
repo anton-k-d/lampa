@@ -93,3 +93,30 @@ test('unsupported archived configuration cannot be rolled back or exposed as eff
   const reopened = openConfigDatabase(path); assert.equal(createConfigRepository(reopened).getHead('global').document.values.features.sync,true); reopened.close();
   rmSync(dir,{recursive:true,force:true});
 });
+
+test('URL policy preview identifies safe fields without exposing input', async t => {
+  const dir = mkdtempSync(join(tmpdir(), 'lampa-policy-'));
+  const db = openConfigDatabase(join(dir, 'db'));
+  const repository = createConfigRepository(db), runtimeStore = createRuntimeStore(db);
+  const service = createConfigService({repository, policy:runtimeStore.context});
+  const server = createHomeServer({repository,service,runtimeStore,allowedHosts:['127.0.0.1']});
+  await new Promise(resolve => server.listen(0,'127.0.0.1',resolve));
+  t.after(async () => { await new Promise(resolve => server.close(resolve)); db.close(); rmSync(dir,{recursive:true,force:true}); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  const preview = async document => (await fetch(base+'/v1/admin/config/validate',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({scopeKey:'global',document})})).json();
+  const doc = global({parser:{enabled:true,endpoint:{url:'http://192.168.1.7:8090/api',mode:'gateway'}}});
+  let result = await preview(doc);
+  assert.equal(result.valid,false);
+  assert.equal(result.issues[0].path,'/parser/endpoint/url');
+  assert.equal(result.issues[0].code,'url_policy');
+  const rejected = await fetch(base+'/v1/admin/config/global',{method:'PUT',headers:{'content-type':'application/json','if-match':'"r-0"','idempotency-key':'invalid-url'},body:JSON.stringify(doc)});
+  assert.equal(rejected.status,422);
+  assert.equal((await rejected.json()).issues[0].path,'/parser/endpoint/url');
+  doc.values.parser.endpoint.url = 'https://user:password@example.com/?token=secret#fragment';
+  result = await preview(doc);
+  assert.equal(result.issues[0].path,'/parser/endpoint/url');
+  for (const text of ['password','token','secret','fragment','example.com']) assert.equal(JSON.stringify(result).includes(text),false);
+  result = await preview(global({'private-field':'secret-value'}));
+  assert.equal(JSON.stringify(result).includes('private-field'),false);
+  assert.equal(JSON.stringify(result).includes('secret-value'),false);
+});

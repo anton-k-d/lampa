@@ -27,6 +27,7 @@ function mutation(req, scopeKey) {
 }
 const object = value => value && typeof value === 'object' && !Array.isArray(value);
 const exact = (value, allowed) => object(value) && Object.keys(value).every(k => allowed.includes(k));
+export const safeIssuePath = issue => issue.code === 'unsupported_capability' || (issue.code === 'url_policy' && /^\/(?:metadata\/endpoint|parser\/endpoint|torrServer\/(?:primary|backup)|sources\/(?:0|[1-9]\d*)\/endpoint|plugins\/(?:0|[1-9]\d*))\/url$/.test(issue.path)) ? issue.path : '';
 
 export async function configRoute(req, pathname, url, deps, body) {
   const {repository, service, runtimeStore} = deps;
@@ -57,7 +58,7 @@ export async function configRoute(req, pathname, url, deps, body) {
     const input = await body();
     if (!exact(input, ['scopeKey','document']) || !Object.hasOwn(input, 'document')) fail('BAD_REQUEST', 'Invalid request');
     const result = service.preview({scopeKey:checkScope(input.scopeKey),document:input.document});
-    return {body:{valid:result.valid,issues:result.issues.map(issue => ({...issue,path:issue.code === 'unsupported_capability' ? issue.path : ''}))}};
+    return {body:{valid:result.valid,issues:result.issues.map(issue => ({...issue,path:safeIssuePath(issue)}))}};
   }
   if (pathname === '/v1/admin/config/revisions' && method === 'GET') {
     const scopeKey = checkScope(url.searchParams.get('scopeKey'));
