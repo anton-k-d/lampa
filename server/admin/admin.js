@@ -476,3 +476,57 @@ $('aiForm').addEventListener('submit',async event=>{
 loadAI();
 
 $('aiTest').addEventListener('click',async()=>{ try { $('aiStatus').textContent='Проверка…'; const result=await api('/v1/admin/ai/test',{method:'POST'}); $('aiStatus').textContent=result.state==='ready'?'Модель доступна.':'Проверка не удалась.'; } catch(e){$('aiStatus').textContent=e.message;} });
+
+const diagnosticsBase = '/v1/admin/diagnostics';
+const diagnosticValue = value => value === null || value === undefined || value === '' ? 'Неизвестно' : String(value);
+const diagnosticTime = value => !value || Number.isNaN(Date.parse(value)) ? diagnosticValue(value) : new Intl.DateTimeFormat('ru-RU', { timeZone: 'Europe/Moscow', dateStyle: 'short', timeStyle: 'medium' }).format(new Date(value));
+const diagnosticTokens = row => [row.inputTokens, row.outputTokens, row.totalTokens, row.cachedTokens].map(diagnosticValue).join(' / ');
+function diagnosticRow(target, values) {
+  const row = document.createElement('tr');
+  for (const value of values) { const cell = document.createElement('td'); cell.textContent = value; row.appendChild(cell); }
+  target.appendChild(row); return row;
+}
+let diagnosticAiCursor = null, diagnosticClientCursor = null;
+async function loadDiagnosticAi(cursor = null) {
+  $('diagnosticsAiStatus').textContent = 'Загрузка…'; $('diagnosticsAiNext').disabled = true;
+  try {
+    const params = new URLSearchParams({limit: '50'}); if (cursor) params.set('beforeId', cursor);
+    const [list, summary] = await Promise.all([api(`${diagnosticsBase}/ai?${params}`), api(`${diagnosticsBase}/ai/summary`)]);
+    $('diagnosticsSummary').replaceChildren(); $('diagnosticsAiRows').replaceChildren();
+    for (const day of summary.days) diagnosticRow($('diagnosticsSummary'), [day.date, day.attempts, day.success, day.failed, diagnosticTokens(day)]);
+    for (const item of list.items) diagnosticRow($('diagnosticsAiRows'), [diagnosticTime(item.time), `${diagnosticValue(item.profileId)} / ${diagnosticValue(item.deviceId)}`, `${diagnosticValue(item.kind)} / ${diagnosticValue(item.model)}`, diagnosticValue(item.status), diagnosticTokens(item), item.latencyMs == null ? 'Неизвестно' : `${item.latencyMs} мс`, `Событие: ${diagnosticValue(item.id)}; задача: ${diagnosticValue(item.jobId)}; запрос: ${diagnosticValue(item.providerRequestId)}; ошибка: ${diagnosticValue(item.errorCode)}`]);
+    diagnosticAiCursor = list.nextCursor; $('diagnosticsAiNext').disabled = !diagnosticAiCursor;
+    $('diagnosticsAiStatus').textContent = list.items.length ? 'Журнал загружен.' : 'Событий нет.';
+  } catch { $('diagnosticsAiStatus').textContent = 'Не удалось загрузить журнал ИИ. Попробуйте обновить.'; }
+}
+async function loadDiagnosticClients(cursor = null) {
+  $('diagnosticsClientStatus').textContent = 'Загрузка…'; $('diagnosticsClientNext').disabled = true;
+  try {
+    const params = new URLSearchParams({limit: '50'}); if (cursor) params.set('beforeId', cursor);
+    const list = await api(`${diagnosticsBase}/client-logs?${params}`); $('diagnosticsClientRows').replaceChildren();
+    for (const item of list.items) {
+      const row = diagnosticRow($('diagnosticsClientRows'), [`${diagnosticValue(item.deviceId)} / ${diagnosticValue(item.id)}`, diagnosticTime(item.receivedAt), `${diagnosticValue(item.client?.appVersion)} / ${diagnosticValue(item.client?.platform)}`, diagnosticValue(item.entryCount), item.truncated ? 'Да' : 'Нет']);
+      const cell = document.createElement('td'), button = document.createElement('button'); button.type = 'button'; button.textContent = `Открыть ${item.id}`;
+      button.addEventListener('click', () => loadDiagnosticDetail(item.id)); cell.appendChild(button); row.appendChild(cell);
+    }
+    diagnosticClientCursor = list.nextCursor; $('diagnosticsClientNext').disabled = !diagnosticClientCursor;
+    $('diagnosticsClientStatus').textContent = list.items.length ? 'Выгрузки загружены.' : 'Выгрузок нет.';
+  } catch { $('diagnosticsClientStatus').textContent = 'Не удалось загрузить выгрузки. Попробуйте обновить.'; }
+}
+let diagnosticDetailId = null;
+async function loadDiagnosticDetail(id) {
+  $('diagnosticsDetailStatus').textContent = 'Загрузка выгрузки…'; $('diagnosticsClientDetail').textContent = ''; $('diagnosticsDownload').disabled = true;
+  try { const detail = await api(`${diagnosticsBase}/client-logs/${encodeURIComponent(id)}`); $('diagnosticsClientDetail').textContent = JSON.stringify(detail, null, 2); $('diagnosticsDetailStatus').textContent = `Выгрузка ${id}`; diagnosticDetailId = id; $('diagnosticsDownload').disabled = false; }
+  catch { $('diagnosticsDetailStatus').textContent = 'Не удалось открыть выгрузку.'; }
+}
+$('diagnosticsAiRefresh').addEventListener('click', () => loadDiagnosticAi());
+$('diagnosticsAiNext').addEventListener('click', () => loadDiagnosticAi(diagnosticAiCursor));
+$('diagnosticsClientRefresh').addEventListener('click', () => loadDiagnosticClients());
+$('diagnosticsClientNext').addEventListener('click', () => loadDiagnosticClients(diagnosticClientCursor));
+
+$('diagnosticsDownload').addEventListener('click', () => {
+  const blob = new Blob([$('diagnosticsClientDetail').textContent], {type: 'application/json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a'); link.href = url; link.download = `diagnostics-${String(diagnosticDetailId).replace(/[^A-Za-z0-9_-]/g, '_')}.json`;
+  document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0);
+});

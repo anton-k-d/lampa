@@ -13,6 +13,8 @@ import Storage from '../core/storage/storage'
 import Timer from '../core/timer'
 import Manifest from '../core/manifest'
 import Platform from '../core/platform'
+import HomeConfig from '../core/home/config.mjs'
+import {makeDiagnostics} from '../core/home/diagnostics.mjs'
 
 let MAX_ENTRIES  = 300
 let MAX_ORIGINAL = 200
@@ -387,14 +389,12 @@ function send(){
     upload().then((code)=>{
         Modal.open({
             title: '',
-            html: $('<div class="about"><div>'+Lang.translate('account_export_secuses')+': <span class="extensions__item-code">'+code+'</span></div></div>'),
+            html: $('<div class="about"><div>Журнал отправлен на Pi. Проверьте админ-панель: <span class="extensions__item-code"></span></div></div>').find('.extensions__item-code').text(code).end(),
             size: 'small',
             zIndex: 200,
             onBack: close
         })
-    }).catch((code)=>{
-        Noty.show(Lang.translate('account_export_fail' + (code && typeof code == 'number' ? '_' + code : '')))
-    }).finally(()=>{
+    }).catch(()=>{}).finally(()=>{
         uploading = false
 
         button.removeClass('console__button--loading')
@@ -407,6 +407,8 @@ function build(){
     html = Template.get('console', {
         app: 'Lampa ' + Manifest.app_version + (platform ? ' · ' + platform.charAt(0).toUpperCase() + platform.slice(1) : '')
     })
+
+    html.find('.console__button[data-action="send"]').text('Отправить журнал на Pi')
 
     scroll_body = new Scroll({
         over: true,
@@ -510,7 +512,10 @@ function escapeHtml(text) {
   }
 
 function decode(arr){
-    if(Arrays.isObject(arr) || Arrays.isArray(arr)){
+    if(arr instanceof Error){
+        arr = escapeHtml(arr.stack || (arr.name + ': ' + arr.message))
+    }
+    else if(Arrays.isObject(arr) || Arrays.isArray(arr)){
         try{
             arr = JSON.stringify(arr)
         }
@@ -614,55 +619,38 @@ function follow(){
     })
 }
 
-/**
- * Отправить журнал на сервер CUB
- * @returns {Promise<string>} код для разработчиков
- */
+let uploadPromise
+
+/** Send the current diagnostic snapshot to the local Pi. */
 function upload(){
-    return new Promise((resolve, reject)=>{
-        let file
-        let data = JSON.stringify(original)
-
-        try{
-            file = new File([data], "lampa_logs.json", {
-                type: "text/plain",
-            })
-        }
-        catch(e){}
-
-        if(!file){
-            try{
-                file = new Blob([data], {type: 'text/plain'})
-                file.lastModifiedDate = new Date()
-            }
-            catch(e){
-                reject()
-            }
-        }
-
-        if(file){
-            let formData = new FormData($('<form></form>')[0])
-                formData.append("file", file, "lampa_logs.json")
-
-            $.ajax({
-                url: Utils.protocol() + Manifest.cub_domain + '/api/lampa/logs/write',
-                type: 'POST',
-                data: formData,
-                async: true,
-                cache: false,
-                timeout: 10000,
-                contentType: false,
-                enctype: 'multipart/form-data',
-                processData: false,
-                success: function (j) {
-                    resolve(j.code)
-                },
-                error: function(e){
-                    reject(e.responseJSON ? e.responseJSON.code : 0)
-                }
-            })
-        }
-    })
+    if(uploadPromise) return uploadPromise
+    Noty.show('Отправка журнала на Pi…')
+    uploadPromise = new Promise((resolve, reject)=>{
+        let deviceId = HomeConfig.status().deviceId
+        if(!deviceId) return reject(new Error('Device ID unavailable'))
+        let payload = makeDiagnostics(entries, {appVersion: Manifest.app_version, platform: Platform.get()})
+        $.ajax({
+            url: '/v1/devices/' + encodeURIComponent(deviceId) + '/logs',
+            type: 'POST',
+            data: JSON.stringify(payload),
+            contentType: 'application/json',
+            dataType: 'json',
+            processData: false,
+            timeout: 10000,
+            success: function(result){
+                if(result && typeof result.id === 'string' && result.id) resolve(result.id)
+                else reject(new Error('Invalid response'))
+            },
+            error: function(){ reject(new Error('Upload failed')) }
+        })
+    }).then((id)=>{
+        Noty.show('Журнал отправлен на Pi. Проверьте админ-панель.')
+        return id
+    }, (error)=>{
+        Noty.show('Не удалось отправить журнал на Pi.')
+        throw error
+    }).finally(()=>{ uploadPromise = null })
+    return uploadPromise
 }
 
 export default {

@@ -28,7 +28,7 @@ function init(){
             type: 'button',
         },
         field: {
-            name: Lang.translate('settings_cub_backup_export'),
+            name: 'Отправить журнал на Pi',
         },
         onChange: () => {
             if(waite) return
@@ -40,13 +40,11 @@ function init(){
             Console.upload().then((code)=>{
                 Modal.open({
                     title: '',
-                    html: $('<div class="about"><div>'+Lang.translate('account_export_secuses')+': <span class="extensions__item-code">'+code+'</span></div></div>'),
+                    html: $('<div class="about"><div>Журнал отправлен на Pi. Проверьте админ-панель: <span class="extensions__item-code"></span></div></div>').find('.extensions__item-code').text(code).end(),
                     size: 'small',
                     onBack: closeModal
                 })
-            }).catch((code)=>{
-                Noty.show(Lang.translate('account_export_fail' + (code && typeof code == 'number' ? '_' + code : '')))
-            }).finally(()=>{
+            }).catch(()=>{}).finally(()=>{
                 waite = false
 
                 loader.addClass('hide')

@@ -143,3 +143,9 @@ li {
 .connection .hint {
   margin: 0.4rem 0;
 }
+.table-scroll { overflow-x: auto; margin: 0.8rem 0; }
+table { border-collapse: collapse; width: 100%; font-size: 0.88rem; }
+th, td { text-align: left; vertical-align: top; padding: 0.5rem; border-bottom: 1px solid #dbe3ef; overflow-wrap: anywhere; }
+th { min-width: 7rem; }
+#diagnosticsClientDetail { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 30rem; overflow: auto; background: #f2f5f9; }
+button:disabled { opacity: 0.55; cursor: default; }
