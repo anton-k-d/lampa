@@ -1,10 +1,10 @@
 # Система конфигурации, Admin и синхронизация
 
-Статус: реализовано внутреннее ядро конфигурации (schema, validation, merge, SQLite revisions и service); остальные части — проект. Ядро не предоставляет HTTP или авторизацию и не подключено к Lampa. Все `/v1/...` ниже — предлагаемые маршруты нового backend, не существующий API Lampa или собственного proxy. Основание: `yumata/lampa-source@86c2b099b19f7058ea304dfa43a8b1e18a2e0492`.
+Статус: реализованы ядро конфигурации, HTTP API и LAN-панель. Клиент Lampa ещё не подключён. Точный список реализованных маршрутов приведён в разделе LAN administration; остальные маршруты ниже — проект, а не API Lampa или существующего proxy. Основание: `yumata/lampa-source@86c2b099b19f7058ea304dfa43a8b1e18a2e0492`.
 
 ## Актуальный локальный scope
 
-По решению пользователя от 2026-11-10 ближайший HTTP/API/Admin этап работает в домашней LAN без авторизации. Login/session/token/pairing разделы ниже сохранены как отложенный вариант и не являются prerequisites текущей разработки. DeviceId/profileId служат адресацией данных; без auth они не обеспечивают ограничение доступа между участниками LAN. Сам HTTP API в текущем commit ещё не реализован. Секреты backend и проверки конфигурации остаются на сервере; публичный интернет-доступ не входит в локальный режим.
+По решению пользователя от 2026-11-10 ближайший HTTP/API/Admin этап работает в домашней LAN без авторизации. Login/session/token/pairing разделы ниже сохранены как отложенный вариант и не являются prerequisites текущей разработки. DeviceId/profileId служат адресацией данных; без auth они не обеспечивают ограничение доступа между участниками LAN. HTTP API и панель реализованы без авторизации. Секреты backend и проверки конфигурации остаются на сервере; публичный интернет-доступ не входит в локальный режим.
 
 ## Внутреннее ядро
 
@@ -30,7 +30,7 @@ try {
 }
 ```
 
-Preview не гарантирует успешную запись: publish повторяет проверку с актуальными heads и policy. Инструкции по тестированию и backup — в [development](development.md). HTTP endpoints, admin, pairing, sync и installer пока не реализованы.
+Preview не гарантирует успешную запись: publish повторяет проверку с актуальными heads и policy. Инструкции по тестированию и backup — в [development](development.md). Pairing, sync, installer и подключение клиента пока не реализованы.
 
 ## Что уже есть в исходниках
 
@@ -75,7 +75,7 @@ URL примера — placeholder нового backend, а не обнаруж�
 
 UI defaults публикуются в global `values.ui`; device override может переопределить отдельные поля. Local preferences `ui.theme`, `ui.density`, `ui.animations` применяются поверх resolved defaults только без соответствующего lock: `/ui` блокирует все три поля, leaf path — одно поле. Существующее локальное значение сохраняется, но не действует до снятия lock. Schema `default` — аннотация: materialization выполняет приложение (system/comfortable/true), валидатор не обязан вставлять значения. Пользовательское reduced-motion ограничивает анимации дополнительно независимо от разрешённого default.
 
-## Auth, session bootstrap и pairing
+## Предложение: auth, session bootstrap и pairing
 
 Все маршруты этого раздела также предлагаются для нового backend. Web Admin использует session cookie, устройство — отдельный ограниченный device credential; auth token и pairing secret не входят в config JSON.
 
@@ -91,7 +91,7 @@ UI defaults публикуются в global `values.ui`; device override мож
 
 До approve pairing не даёт доступа к config/state. После approve device получает лишь `config:read-self`, `config:ack-self`, `sync:read-profile`, `sync:write-profile` в выбранном profile; secret/admin/device-manage scopes запрещены. Device access token TTL 15 минут, refresh credential TTL 30 суток с rotation и reuse detection; `POST /v1/auth/device/refresh` обменивает refresh credential, проверяет revoke и возвращает новый pair. Poll минимум раз в 5 секунд, server может вернуть 429/Retry-After; после TTL новый start, старый code не продлевается. UserCode хранится хешированным, pollSecret высокоэнтропийный, одноразовая approval транзакция не позволяет связать устройство с двумя профилями. Revoke проверяется каждым серверным запросом, offline last-known-good не обеспечивает мгновенное удаление локального контента. Admin session TTL 8 часов с server-side expiry; production login policy/MFA определяется identity backend. Выход пользователя не удаляет глобальную регистрацию устройства: revoke доступен только Admin.
 
-## Admin API и жизненный цикл
+## Предложение: расширенный Admin API и жизненный цикл
 
 | Метод / предлагаемый маршрут | Контракт |
 |---|---|
@@ -152,3 +152,32 @@ Progress payload: sessionId, generation, checkpointSeq, positionSeconds≥0, dur
 Offline: durable outbox в IndexedDB записывается до отображения optimistic результата, opId сохраняется при retry, ack удаляет только подтверждённую операцию. Checkpoints одной сессии можно coalesce до отправки, сохраняя последний seq; reset/complete/delete не coalesce с обычным checkpoint. Сначала pull/rebase, затем push, затем pull до highWaterMark; локальная очередь накладывается поверх remote snapshot. 429/5xx/network повторяются с backoff+jitter и Retry-After; 401 останавливает очередь до auth, 403/rejected не повторяется автоматически. Квота и удалённые tombstones хранятся минимум offline horizon; более старый клиент получает snapshot-required. Logout не переносит outbox следующему пользователю.
 
 Минимальные acceptance scenarios: two-device favorite add/remove conflict; duplicate batch после timeout; offline reset и старый checkpoint; перемотка назад; complete на другом устройстве; clock skew; истёкший cursor; 412 config race/rollback; corrupted offline snapshot; missing secret; import plugin URL; blocked SSRF redirect. Это критерии будущей реализации, не утверждение о пройденных тестах.
+
+### LAN administration
+
+See [development](development.md#local-configuration-panel) for LAN startup,
+allowed hosts, runtime paths, and database directory permissions.
+
+The Russian admin panel at `/admin/` edits global or device revisions. Blank
+fields in device scope remove the corresponding override. Jackett and TorrServer have explicit enabled, disabled, and inherit/default choices; entering a URL does not enable either service. Save validates the
+full document and preserves other schema fields. A conflict leaves the form
+intact; load the current version before applying changes again. History can
+restore a previous revision. The separate LAN HTTP origin button changes the
+runtime allowlist independently of configuration saves.
+
+Secret inputs are write-only: an empty input retains the current reference;
+the remove checkbox removes it from the next revision without deleting the
+secret. Export replaces credential references with portable placeholders and
+contains no secret values. Import previews the document and refuses unresolved
+placeholders; references must be explicitly replaced with configured references
+on the target server. Secrets are stored as plaintext in a private SQLite file,
+not encrypted at rest. This trusted-LAN service has no authentication and must
+not be exposed to the public Internet. Configuration storage does not yet
+connect Lampa clients or proxy requests to the configured services.
+
+The implemented HTTP routes are `/v1/admin/config/{schema,global,validate,revisions,rollback}`,
+`/v1/admin/devices/{id}/config`, `/v1/admin/secrets`,
+`/v1/admin/secrets/status`, `/v1/admin/lan-origins`, and
+`/v1/devices/{id}/config`. Older descriptions of authentication, pairing, or
+client routes elsewhere in this document are proposals, not implemented
+prerequisites. The client bridge is future work.

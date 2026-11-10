@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Настройки Lampa</title>
+    <link rel="stylesheet" href="admin.css" />
+    <script src="admin.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">LAMPA · ДОМАШНИЙ СЕРВЕР</p>
+        <h1>Настройки</h1>
+        <p>
+          Настройки сохраняются на сервере. Подключение клиентов Lampa —
+          следующий этап.
+        </p>
+      </header>
+      <div id="status" role="status" aria-live="polite"></div>
+      <section>
+        <h2>Область настроек</h2>
+        <div class="grid">
+          <label
+            >Область<select id="scope">
+              <option value="global">Общие</option>
+              <option value="device">Устройство</option>
+            </select></label
+          ><label
+            >ID устройства<input id="device" autocomplete="off" disabled
+          /></label>
+        </div>
+        <button id="load" type="button">Открыть настройки</button>
+        <p class="hint">
+          Для устройства пустое поле наследует общую настройку.
+        </p>
+      </section>
+      <form id="form" novalidate>
+        <section>
+          <h2>Подключения</h2>
+          <div class="connections">
+            <div class="connection">
+              <h3>TMDB Proxy</h3>
+              <div class="grid">
+                <label
+                  >TMDB Proxy URL<input
+                    id="tmdb"
+                    type="url"
+                    placeholder="https://..." /><span
+                    class="error"
+                    id="tmdb-error"
+                  ></span></label
+                ><label
+                  >Язык метаданных<input id="locale" placeholder="ru-RU"
+                /></label>
+                <div>
+                  <label
+                    >Ключ метаданных<input
+                      id="metadataKey"
+                      type="password"
+                      autocomplete="new-password"
+                  /></label>
+                  <p class="hint" id="metadataKeyStatus"></p>
+                  <label class="check"
+                    ><input id="removeMetadata" type="checkbox" /> Убрать ключ
+                    метаданных</label
+                  >
+                </div>
+              </div>
+            </div>
+            <div class="connection">
+              <h3>Jackett</h3>
+              <div class="grid">
+                <label
+                  >Состояние Jackett<select id="jackettEnabled">
+                    <option value="">Наследовать / по умолчанию</option>
+                    <option value="true">Включён</option>
+                    <option value="false">Выключен</option>
+                  </select></label
+                >
+                <label
+                  >Jackett URL<input
+                    id="jackett"
+                    type="url"
+                    placeholder="https://..." /><span
+                    class="error"
+                    id="jackett-error"
+                  ></span
+                ></label>
+                <div>
+                  <label
+                    >Ключ Jackett<input
+                      id="jackettKey"
+                      type="password"
+                      autocomplete="new-password"
+                  /></label>
+                  <p class="hint" id="jackettKeyStatus"></p>
+                  <label class="check"
+                    ><input id="removeJackett" type="checkbox" /> Убрать ключ
+                    Jackett</label
+                  >
+                </div>
+              </div>
+            </div>
+            <div class="connection">
+              <h3>TorrServer</h3>
+              <label
+                >Состояние TorrServer<select id="torrEnabled">
+                  <option value="">Наследовать / по умолчанию</option>
+                  <option value="true">Включён</option>
+                  <option value="false">Выключен</option>
+                </select></label
+              >
+              <label
+                >TorrServer URL<input
+                  id="torr"
+                  type="url"
+                  placeholder="https://..." /><span
+                  class="error"
+                  id="torr-error"
+                ></span
+              ></label>
+            </div>
+          </div>
+          <p class="hint">Пустое поле ключа сохраняет существующий ключ.</p>
+        </section>
+        <section>
+          <h2>Внешний вид</h2>
+          <div class="grid">
+            <label
+              >Тема<select id="theme">
+                <option value="">Наследовать / по умолчанию</option>
+                <option value="system">Системная</option>
+                <option value="dark">Тёмная</option>
+                <option value="light">Светлая</option>
+              </select></label
+            ><label
+              >Плотность<select id="density">
+                <option value="">Наследовать / по умолчанию</option>
+                <option value="comfortable">Обычная</option>
+                <option value="compact">Компактная</option>
+              </select></label
+            ><label
+              >Анимация<select id="animations">
+                <option value="">Наследовать / по умолчанию</option>
+                <option value="true">Включена</option>
+                <option value="false">Выключена</option>
+              </select></label
+            >
+          </div>
+        </section>
+        <div class="actions">
+          <button type="button" id="validate">Проверить</button
+          ><button type="submit" class="primary">Сохранить</button>
+        </div>
+      </form>
+      <section>
+        <h2>Разрешение HTTP в локальной сети</h2>
+        <p class="hint">
+          Укажите протокол, адрес и порт без пути, например
+          http://192.168.1.10:8090. Разрешение выдаётся отдельно от сохранения
+          настроек.
+        </p>
+        <div class="inline">
+          <label
+            >Адрес локальной службы<input
+              id="origin"
+              placeholder="http://192.168.1.10:8090" /></label
+          ><button id="allow" type="button">Разрешить HTTP</button>
+        </div>
+        <p id="originStatus" role="status"></p>
+      </section>
+      <section>
+        <h2>История</h2>
+        <button id="history" type="button">Обновить историю</button>
+        <ul id="revisions"></ul>
+      </section>
+      <section>
+        <h2>Перенос настроек</h2>
+        <p class="hint">
+          Экспорт не содержит ключей. Перед импортом замените заполнители ссылок
+          на доступные ссылки этого сервера.
+        </p>
+        <div class="actions">
+          <button id="export" type="button">Экспортировать</button
+          ><button id="import" type="button">Предпросмотр импорта</button>
+        </div>
+        <label
+          >JSON<textarea id="transfer" rows="8" spellcheck="false"></textarea>
+        </label>
+      </section>
+    </main>
+  </body>
+</html>

@@ -43,6 +43,46 @@ npm --prefix server ci
 npm --prefix server test
 ```
 
-The core is an internal library, without HTTP, authentication, a CLI, or a connection to Lampa. The proposed configuration, revision, preview, rollback, pairing and sync endpoints are not implemented. See [configuration system](config-system.md) for the contract and implementation boundary.
+The server implements HTTP configuration, revision, preview, and rollback endpoints and the LAN admin panel without authentication. Pairing, sync, a CLI, and the Lampa client connection remain future work. See [configuration system](config-system.md) for the contract and implementation boundary.
 
 Place SQLite on a local filesystem outside Git; WAL, foreign keys, a 5000 ms busy timeout and FULL synchronous mode are configured by the core. Back up a consistent database with SQLite's backup facilities, or close all connections before copying the database; copying only the main file while WAL is active can lose committed data. Do not use a network mount. Database files and WAL/SHM companions must not be committed. Real Pi/ARM64 testing remains outstanding.
+
+### Local configuration panel
+
+Run `npm --prefix server ci` and `npm --prefix server start`, then open
+`http://127.0.0.1:8080/admin/`. The panel and API are intended for a trusted
+LAN without login; do not expose it publicly. For trusted LAN access, replace
+the example IP and hostname below with the addresses used by your devices:
+
+```sh
+HOST=0.0.0.0 ALLOWED_HOSTS='192.168.1.50,raspberrypi.local,localhost,127.0.0.1' npm --prefix server start
+```
+
+Open `http://192.168.1.50:8080/admin/` using the actual LAN address. Binding
+`HOST=0.0.0.0` alone does not allow requests addressed to that IP; include
+each hostname or IP used by browsers in `ALLOWED_HOSTS`, without ports.
+
+Runtime environment variables:
+
+- `HOST`: bind address, default `127.0.0.1`.
+- `PORT`: listen port, default `8080`.
+- `ALLOWED_HOSTS`: comma-separated hostnames or IPs without ports; default is
+  the bind host plus `localhost` and `127.0.0.1`.
+- `DATABASE_PATH`: SQLite file path; overrides `RUNTIME_DIRECTORY`.
+- `RUNTIME_DIRECTORY`: database directory when `DATABASE_PATH` is unset;
+  default `server/.data`, with file `config.sqlite`.
+- `CLIENT_ROOT`: static client directory for `/app/`; default
+  `build/github/lampa` at the repository root.
+
+The database parent directory must be owned by the server user and private
+(mode `0700`); the server creates a missing parent directory with that mode
+and uses mode `0600` for its database file. Use a dedicated directory rather
+than changing permissions on a shared directory such as `/tmp`.
+The panel stores settings only: client connection and service integrations
+are not implemented yet. Existing local application settings are not migrated.
+
+Run backend tests with `npm --prefix server test`. For real-browser tests run
+`npx --prefix server playwright install chromium` and
+`npm --prefix server run test:browser`. To use an existing local Chromium,
+set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable. The browser tests
+start the real server with a private temporary database and contact no upstreams.

@@ -79,3 +79,27 @@ test('diagnostics hide unknown keys, secret references and credential URLs', t =
     });
   }
 });
+
+test('additional validator checks every effective device inside publish and rollback', t => {
+  const {repository} = setup(t);
+  const permissive = createConfigService({repository});
+  const old = permissive.publish(request('global',global({features:{sync:true}}),0,'old'));
+  const current = permissive.publish(request('global',global({}),old.revision,'current'));
+  permissive.publish(request('device:a',device('a',{}),0,'da'));
+  permissive.publish(request('device:z',device('z',{features:{sync:true}}),0,'dz'));
+  const validator = values => values.features.sync ? [{path:'/features/sync',code:'unsupported_capability',message:'Unsupported'}] : [];
+  const strict = createConfigService({repository,additionalValidator:validator});
+  assert.throws(() => strict.publish(request('global',global({ui:{theme:'dark'}}),current.revision,'bad')), invalid);
+  assert.throws(() => strict.rollback({scopeKey:'global',targetRevision:old.revision,expectedRevision:current.revision,mutationId:'rb',actorId:'admin',reason:null}), invalid);
+  assert.equal(repository.getHead('global').revision,current.revision);
+});
+
+test('additional validator rechecks changed global after preview', t => {
+  const {repository} = setup(t);
+  const permissive = createConfigService({repository});
+  const strict = createConfigService({repository,additionalValidator:values => values.features.sync ? [{path:'/features/sync',code:'unsupported_capability',message:'Unsupported'}] : []});
+  const candidate = device('tv',{});
+  assert.equal(strict.preview({scopeKey:'device:tv',document:candidate}).valid,true);
+  permissive.publish(request('global',global({features:{sync:true}}),0,'changed'));
+  assert.throws(() => strict.publish(request('device:tv',candidate,0,'tv')),invalid);
+});

@@ -1,0 +1,378 @@
+"use strict";
+const $ = (id) => document.getElementById(id);
+let snapshot,
+  revision = 0,
+  pending,
+  imported,
+  loadedScope;
+const scopeKey = () =>
+  $("scope").value === "global"
+    ? "global"
+    : `device:${$("device").value.trim()}`;
+const configPath = () =>
+  scopeKey() === "global"
+    ? "/v1/admin/config/global"
+    : `/v1/admin/devices/${encodeURIComponent($("device").value.trim())}/config`;
+const message = (text) => {
+  $("status").textContent = text;
+};
+async function api(path, options = {}) {
+  const response = await fetch(path, options);
+  const result = await response.json();
+  if (!response.ok) {
+    const error = new Error(result.message || "Ошибка сервера");
+    error.code = result.code;
+    throw error;
+  }
+  return result;
+}
+const json = (method, body, headers = {}) => ({
+  method,
+  headers: { "Content-Type": "application/json", ...headers },
+  body: JSON.stringify(body),
+});
+function show(doc) {
+  const v = doc.values || {};
+  $("tmdb").value = v.metadata?.endpoint?.url || "";
+  $("locale").value = v.metadata?.locale || "";
+  $("jackett").value = v.parser?.endpoint?.url || "";
+  $("torr").value = v.torrServer?.primary?.url || "";
+  $("jackettEnabled").value =
+    v.parser?.enabled === undefined ? "" : String(v.parser.enabled);
+  $("torrEnabled").value =
+    v.torrServer?.enabled === undefined ? "" : String(v.torrServer.enabled);
+  for (const key of ["theme", "density", "animations"])
+    $(key).value = v.ui?.[key] === undefined ? "" : String(v.ui[key]);
+  for (const key of ["jackettKey", "metadataKey"]) $(key).value = "";
+  $("jackettKeyStatus").textContent = v.parser?.endpoint?.credentialRef
+    ? "Ключ сохранён."
+    : "Ключ не задан.";
+  $("metadataKeyStatus").textContent = v.metadata?.endpoint?.credentialRef
+    ? "Ключ сохранён."
+    : "Ключ не задан.";
+  $("removeJackett").checked = $("removeMetadata").checked = false;
+}
+async function load() {
+  if (
+    $("scope").value === "device" &&
+    !/^[A-Za-z0-9_-]{1,128}$/.test($("device").value.trim())
+  ) {
+    message("Укажите корректный ID устройства.");
+    return;
+  }
+  try {
+    const result = await api(configPath());
+    snapshot = result.document;
+    revision = result.revision;
+    loadedScope = scopeKey();
+    pending = imported = undefined;
+    show(snapshot);
+    message(`Открыта версия ${revision}.`);
+    await history();
+  } catch (e) {
+    message(e.message);
+  }
+}
+const cloneDocument = (value) => JSON.parse(JSON.stringify(value));
+function clean(obj, key) {
+  if (obj[key] && !Object.keys(obj[key]).length) delete obj[key];
+}
+function endpoint(values, group, field, url, type) {
+  const previous = values[group]?.[field];
+  if ((previous?.url || "") === url) return;
+  if (!url) {
+    if (values[group]) {
+      delete values[group][field];
+      clean(values, group);
+    }
+    return;
+  }
+  values[group] ||= {};
+  values[group][field] = {
+    ...previous,
+    url,
+    mode: previous?.mode || "gateway",
+  };
+  if (type === "metadata") values[group].providerId ||= "tmdb";
+}
+function documentFromForm() {
+  if (scopeKey() !== loadedScope)
+    throw new Error("Сначала откройте выбранную область настроек.");
+  const doc = cloneDocument(imported || snapshot);
+  const v = doc.values;
+  endpoint(v, "metadata", "endpoint", $("tmdb").value.trim(), "metadata");
+  endpoint(v, "parser", "endpoint", $("jackett").value.trim(), "parser");
+  endpoint(v, "torrServer", "primary", $("torr").value.trim(), "torr");
+  for (const [id, group] of [
+    ["jackettEnabled", "parser"],
+    ["torrEnabled", "torrServer"],
+  ]) {
+    const value = $(id).value;
+    if (value) {
+      v[group] ||= {};
+      v[group].enabled = value === "true";
+    } else if (v[group]) {
+      delete v[group].enabled;
+      clean(v, group);
+    }
+  }
+  if ($("locale").value.trim()) {
+    v.metadata ||= {};
+    v.metadata.locale = $("locale").value.trim();
+  } else if (v.metadata) {
+    delete v.metadata.locale;
+    clean(v, "metadata");
+  }
+  v.ui ||= {};
+  for (const key of ["theme", "density", "animations"]) {
+    const val = $(key).value;
+    if (!val) delete v.ui[key];
+    else v.ui[key] = key === "animations" ? val === "true" : val;
+  }
+  clean(v, "ui");
+  if ($("removeJackett").checked && v.parser?.endpoint)
+    delete v.parser.endpoint.credentialRef;
+  if ($("removeMetadata").checked && v.metadata?.endpoint)
+    delete v.metadata.endpoint.credentialRef;
+  return doc;
+}
+function validUrls() {
+  let valid = true;
+  for (const id of ["tmdb", "jackett", "torr"]) {
+    const value = $(id).value.trim();
+    let ok = true;
+    if (value) {
+      try {
+        const u = new URL(value);
+        ok =
+          ["http:", "https:"].includes(u.protocol) &&
+          !u.username &&
+          !u.password;
+      } catch {
+        ok = false;
+      }
+    }
+    $(id + "-error").textContent = ok
+      ? ""
+      : "Введите корректный HTTP или HTTPS URL без пароля.";
+    $(id).setAttribute("aria-invalid", String(!ok));
+    valid &&= ok;
+  }
+  return valid;
+}
+async function preview(doc) {
+  const result = await api(
+    "/v1/admin/config/validate",
+    json("POST", { scopeKey: scopeKey(), document: doc }),
+  );
+  if (
+    !result.valid &&
+    result.issues.some(
+      (issue) => issue.message === "Enabled integration requires an endpoint",
+    )
+  )
+    throw new Error(
+      "Для включённой службы укажите адрес или выберите выключение / наследование.",
+    );
+  if (!result.valid)
+    throw new Error(
+      "Проверьте настройки: " + result.issues.map((x) => x.message).join("; "),
+    );
+}
+async function validate() {
+  if (!snapshot || !validUrls()) {
+    message("Проверьте адреса.");
+    return;
+  }
+  try {
+    await preview(documentFromForm());
+    message("Проверка пройдена.");
+  } catch (e) {
+    message(e.message);
+  }
+}
+function mutationId() {
+  return Array.from(crypto.getRandomValues(new Uint8Array(16)), (b) =>
+    b.toString(16).padStart(2, "0"),
+  ).join("");
+}
+function mutationHeaders(key, rev) {
+  return { "If-Match": `"r-${rev}"`, "Idempotency-Key": key };
+}
+$("form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  message("Сохранение…");
+  if (!snapshot || !validUrls()) {
+    message("Проверьте адреса.");
+    return;
+  }
+  try {
+    const doc = documentFromForm();
+    if (
+      ($("jackettKey").value && !doc.values.parser?.endpoint) ||
+      ($("metadataKey").value && !doc.values.metadata?.endpoint)
+    )
+      throw new Error("Для ключа укажите адрес соответствующей службы.");
+    await preview(doc);
+    const signature = JSON.stringify([
+      doc,
+      $("jackettKey").value,
+      $("metadataKey").value,
+      revision,
+      scopeKey(),
+    ]);
+    if (!pending || pending.signature !== signature) {
+      const body = cloneDocument(doc);
+      for (const [input, group] of [
+        ["jackettKey", "parser"],
+        ["metadataKey", "metadata"],
+      ])
+        if ($(input).value) {
+          const secret = await api(
+            "/v1/admin/secrets",
+            json("POST", { value: $(input).value }),
+          );
+          body.values[group].endpoint.credentialRef = secret.ref;
+        }
+      pending = { signature, body, key: mutationId(), revision };
+    }
+    const result = await api(
+      configPath(),
+      json("PUT", pending.body, mutationHeaders(pending.key, pending.revision)),
+    );
+    snapshot = result.document;
+    revision = result.revision;
+    pending = imported = undefined;
+    show(snapshot);
+    message(
+      "Сохранено. Настройки подключений записаны; подключение клиентов Lampa ещё не выполнено.",
+    );
+    await history();
+  } catch (e) {
+    message(
+      e.code === "REVISION_CONFLICT"
+        ? "Настройки изменены в другом окне. Ваши изменения сохранены в форме; откройте текущую версию перед повторным сохранением."
+        : e.message,
+    );
+  }
+});
+async function history() {
+  try {
+    if (scopeKey() !== loadedScope)
+      throw new Error("Сначала откройте выбранную область настроек.");
+    const { revisions } = await api(
+      "/v1/admin/config/revisions?scopeKey=" + encodeURIComponent(scopeKey()),
+    );
+    $("revisions").replaceChildren();
+    for (const item of revisions) {
+      const li = document.createElement("li");
+      const text = document.createElement("span");
+      text.textContent = `Версия ${item.revision} · ${new Date(item.createdAt).toLocaleString("ru-RU")}${item.reason ? ` · ${item.reason}` : ""} `;
+      const button = document.createElement("button");
+      button.type = "button";
+      button.textContent = "Восстановить";
+      button.addEventListener("click", async () => {
+        try {
+          if (scopeKey() !== loadedScope)
+            throw new Error("Сначала откройте выбранную область настроек.");
+          const result = await api(
+            "/v1/admin/config/rollback",
+            json(
+              "POST",
+              { scopeKey: scopeKey(), targetRevision: item.revision },
+              mutationHeaders(mutationId(), revision),
+            ),
+          );
+          snapshot = result.document;
+          revision = result.revision;
+          pending = imported = undefined;
+          show(snapshot);
+          message("Версия восстановлена.");
+          await history();
+        } catch (e) {
+          message(e.message);
+        }
+      });
+      li.append(text, button);
+      $("revisions").append(li);
+    }
+  } catch (e) {
+    message(e.message);
+  }
+}
+$("scope").addEventListener("change", () => {
+  $("device").disabled = $("scope").value === "global";
+});
+$("load").addEventListener("click", load);
+$("history").addEventListener("click", history);
+$("validate").addEventListener("click", validate);
+$("allow").addEventListener("click", async () => {
+  try {
+    await api(
+      "/v1/admin/lan-origins",
+      json("POST", { origin: $("origin").value.trim() }),
+    );
+    $("originStatus").textContent = "HTTP разрешён отдельно от настроек.";
+  } catch (e) {
+    $("originStatus").textContent = e.message;
+  }
+});
+function portable(value) {
+  if (Array.isArray(value)) return value.map(portable);
+  if (value && typeof value === "object")
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [
+        k,
+        k === "credentialRef" ? "UNRESOLVED_CREDENTIAL_REF" : portable(v),
+      ]),
+    );
+  return value;
+}
+function unresolved(value) {
+  if (Array.isArray(value)) return value.some(unresolved);
+  if (value && typeof value === "object")
+    return Object.entries(value).some(
+      ([k, v]) =>
+        (k === "credentialRef" &&
+          (typeof v !== "string" || !/^secret:[A-Za-z0-9_-]+$/.test(v))) ||
+        unresolved(v),
+    );
+  return false;
+}
+$("export").addEventListener("click", () => {
+  try {
+    if (snapshot)
+      $("transfer").value = JSON.stringify(
+        portable(documentFromForm()),
+        null,
+        2,
+      );
+  } catch (e) {
+    message(e.message);
+  }
+});
+$("import").addEventListener("click", async () => {
+  try {
+    const doc = JSON.parse($("transfer").value);
+    if (unresolved(doc))
+      throw new Error(
+        "Импорт заблокирован: замените все незаполненные ссылки на ключи этого сервера.",
+      );
+    if (
+      doc.scope !== $("scope").value ||
+      (doc.scope === "device" && doc.deviceId !== $("device").value.trim())
+    )
+      throw new Error(
+        "Область импортируемых настроек не совпадает с выбранной.",
+      );
+    await preview(doc);
+    imported = doc;
+    show(doc);
+    message(
+      "Предпросмотр импорта готов. Проверьте поля и нажмите «Сохранить».",
+    );
+  } catch (e) {
+    message(e.message);
+  }
+});
+load();

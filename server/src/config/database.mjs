@@ -1,13 +1,27 @@
 import { DatabaseSync } from 'node:sqlite';
+import { chmodSync, closeSync, constants, fstatSync, lstatSync, mkdirSync, openSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { ConfigError } from './errors.mjs';
 
 export function openConfigDatabase(path) {
   let db;
   try {
+    if (path !== ':memory:') {
+      const absolute = resolve(path), dir = dirname(absolute);
+      try { mkdirSync(dir, { mode: 0o700 }); } catch (e) { if (e.code !== 'EEXIST') throw e; }
+      const info = lstatSync(dir);
+      if (!info.isDirectory() || info.uid !== process.getuid() || (info.mode & 0o077)) throw new Error('Insecure database directory');
+      const fd = openSync(absolute, constants.O_CREAT | constants.O_RDWR | constants.O_NOFOLLOW, 0o600);
+      try {
+        const file = fstatSync(fd);
+        if (!file.isFile() || file.uid !== process.getuid()) throw new Error('Insecure database file');
+        chmodSync(absolute, 0o600);
+      } finally { closeSync(fd); }
+    }
     db = new DatabaseSync(path);
     db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL');
     const version = db.prepare('PRAGMA user_version').get().user_version;
-    if (version > 1) throw new ConfigError('UNSUPPORTED_DB_VERSION', 'Unsupported database version');
+    if (version > 2) throw new ConfigError('UNSUPPORTED_DB_VERSION', 'Unsupported database version');
     db.exec('PRAGMA journal_mode=WAL');
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -19,7 +33,9 @@ export function openConfigDatabase(path) {
         FOREIGN KEY(restored_from) REFERENCES config_revisions(revision));
         CREATE TABLE IF NOT EXISTS config_heads (scope_key TEXT PRIMARY KEY, revision INTEGER NOT NULL REFERENCES config_revisions(revision));
         CREATE TABLE IF NOT EXISTS config_mutations (actor_id TEXT NOT NULL, mutation_id TEXT NOT NULL, request_hash TEXT NOT NULL, revision INTEGER NOT NULL REFERENCES config_revisions(revision), PRIMARY KEY(actor_id, mutation_id));
-        PRAGMA user_version=1`);
+        CREATE TABLE IF NOT EXISTS runtime_secrets (ref TEXT PRIMARY KEY, value TEXT NOT NULL, created_at TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS runtime_lan_origins (origin TEXT PRIMARY KEY);
+        PRAGMA user_version=2`);
       db.exec('COMMIT');
     } catch (error) { db.exec('ROLLBACK'); throw error; }
     return db;

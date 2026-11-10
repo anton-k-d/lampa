@@ -53,3 +53,14 @@ jobs:
       - run: npm install --global npm@11.9.0
       - run: npm --prefix server ci
       - run: npm --prefix server test
+
+  admin-browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+      - run: npm --prefix server ci
+      - run: npx --prefix server playwright install --with-deps chromium
+      - run: npm --prefix server run test:browser

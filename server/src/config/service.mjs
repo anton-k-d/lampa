@@ -8,7 +8,7 @@ const matchesScope = (scopeKey, document) => typeof scopeKey === 'string' && doc
 );
 
 /** Orchestrate structural and trusted policy validation around repository transactions. */
-export function createConfigService({ repository, policy = {} }) {
+export function createConfigService({ repository, policy = {}, additionalValidator = () => [] }) {
   function validate(scopeKey, document, heads) {
     const structural = validateConfigDocument(document);
     if (!structural.valid) return structural;
@@ -17,8 +17,9 @@ export function createConfigService({ repository, policy = {} }) {
     const devices = scopeKey === 'global'
       ? heads.filter(head => head.scopeKey.startsWith('device:')).map(head => head.document)
       : [document];
-    const issues = scopeKey === 'global' ? validateResolvedConfig(resolveManagedConfig(global), policy) : [];
-    for (const device of devices) issues.push(...validateResolvedConfig(resolveManagedConfig(global, device), policy));
+    const check = values => [...validateResolvedConfig(values, policy), ...additionalValidator(values)];
+    const issues = scopeKey === 'global' ? check(resolveManagedConfig(global)) : [];
+    for (const device of devices) issues.push(...check(resolveManagedConfig(global, device)));
     return { valid:issues.length === 0, issues };
   }
   const preview = ({scopeKey, document}) => validate(scopeKey, document, repository.listHeads());

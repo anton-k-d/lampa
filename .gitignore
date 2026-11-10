@@ -14,3 +14,9 @@ temp/
 *.db
 *.db-wal
 *.db-shm
+
+server/.data/
+
+# Local administration browser test artifacts
+/server/test-results/
+/server/playwright-report/
