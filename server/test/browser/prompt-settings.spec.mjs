@@ -62,3 +62,11 @@ test('старый ответ без промптов не отправляет 
   await page.getByRole('button', { name: 'Сохранить настройки ИИ' }).click();
   expect((await request).postDataJSON().document).not.toHaveProperty('prompts');
 });
+test('справка описывает поиск и сигналы для главной', async ({ page }) => {
+  await page.goto(base + '/admin/');
+  const form = page.locator('#aiForm');
+  await expect(form).toContainText('лайки');
+  await expect(form).toContainText('web_search');
+  await expect(form).toContainText('TMDB');
+  await expect(form).not.toContainText('пул кандидатов');
+});

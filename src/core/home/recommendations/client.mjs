@@ -45,7 +45,7 @@ export function getHome(){return request('GET','/home')}
 export function getSimilar(seed){return request('GET','/similar?type='+encodeURIComponent(seed.type)+'&id='+encodeURIComponent(seed.id))}
 export async function refreshHome(){
     if(homeFlight) return homeFlight;
-    homeFlight=(async()=>{try {notify('Обновление ИИ-подборки…'); if(!sync) throw Error('history unavailable'); await sync.flush(); const job=await request('POST','/home/refresh',{},mutation()); notify('ИИ-подборка в очереди'); await poll(job.jobId,false); return await getHome();} catch(e){notify('Не удалось обновить ИИ-подборку: '+e.message);throw e} finally {homeFlight=null}})();
+    homeFlight=(async()=>{try {notify('Обновление ИИ-подборки…'); if(!sync) throw Error('history unavailable'); await sync.flush(); const job=await request('POST','/home/refresh',{},mutation()); if(!job.jobId){if(job.state==='no_likes') notify('Добавьте лайки фильмам или сериалам для подборки'); else if(job.state==='needs_history') notify('Сначала синхронизируйте историю'); else if(job.state==='not_configured') notify('Администратор должен настроить ключ OpenAI'); else notify('Подборка пока недоступна'); return job;} notify('ИИ-подборка в очереди'); await poll(job.jobId,false); return await getHome();} catch(e){notify('Не удалось обновить ИИ-подборку: '+e.message);throw e} finally {homeFlight=null}})();
     return homeFlight;
 }
 export async function waitSimilar(seed,jobId,alive=()=>true){
