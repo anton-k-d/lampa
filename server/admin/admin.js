@@ -299,7 +299,7 @@ $("form").addEventListener("submit", async (event) => {
     pending = imported = undefined;
     show(snapshot);
     message(
-      "Сохранено. Настройки подключений записаны; подключение клиентов Lampa ещё не выполнено.",
+      "Сохранено. WEB/MSX-клиенты получат подключения с Pi; для немедленного применения откройте настройки Lampa Home на телевизоре.",
     );
     await history();
   } catch (e) {

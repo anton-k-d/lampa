@@ -10,6 +10,7 @@ import Manifest from '../core/manifest'
 import Mirrors from '../core/mirrors'
 import Cache from './cache'
 import Utils from './utils'
+import { redactUrl } from './redact_url.mjs'
 
 let bad_mirrors = {}
 
@@ -370,7 +371,7 @@ function Request(){
 
                     let next = mirrors.shift()
 
-                    console.log('Request','try next mirror for:', params.url, 'next mirror:', next)
+                    console.log('Request','try next mirror for:', redactUrl(params.url), 'next mirror:', next)
 
                     Manifest.cub_mirrors.forEach(mirror=>{
                         params.url = params.url.replace(mirror, next)
@@ -442,14 +443,14 @@ function Request(){
             if(params.attempts && params.attempts > 0){
                 params.attempts--
 
-                console.log('Request','attempt left:', params.attempts, 'for', params.url)
+                console.log('Request','attempt left:', params.attempts, 'for', redactUrl(params.url))
 
                 return go(params)
             }
 
             // Если есть старый кеш отдаем его
             if(cache_old){
-                console.log('Request','use old cache for:', params.url, 'key:', cacheName(params))
+                console.log('Request','use old cache for:', redactUrl(params.url), 'key:', redactUrl(cacheName(params)))
 
                 return secuses(cache_old, true)
             }
@@ -459,14 +460,14 @@ function Request(){
 
             params.url = params.url || 'no url';
 
-            Lampa.Listener.send('request_error', {params, error: jqXHR, exception});
+            Lampa.Listener.send('request_error', {params: Object.assign({},params,{url:redactUrl(params.url)}), error: jqXHR, exception});
 
             let end_time = Date.now() - start_time
             let time = end_time > 1000 ? Math.round(end_time / 1000) + 's' : end_time + 'ms'
 
             jqXHR.error_time = time
             
-            console.log('Request',params.post_data ? 'POST' : 'GET','time:',time,'error of '+params.url+' :', errorDecode(jqXHR, exception));
+            console.log('Request',params.post_data ? 'POST' : 'GET','time:',time,'error of '+redactUrl(params.url)+' :', errorDecode(jqXHR, exception));
 
             if(errorCallback) return errorCallback(jqXHR, exception);
 
@@ -594,12 +595,12 @@ function Request(){
         let start_time = Date.now()
         
         var error = function(jqXHR, exception){
-            Lampa.Listener.send('request_error', {params, error: jqXHR})
+            Lampa.Listener.send('request_error', {params: Object.assign({},params,{url:redactUrl(params.url)}), error: jqXHR})
 
             let end_time = Date.now() - start_time
             let time = end_time > 1000 ? Math.round(end_time / 1000) + 's' : end_time + 'ms'
 
-            console.log('Request',params.post_data ? 'POST' : 'GET','time:',time,'error of '+params.url+' :', errorDecode(jqXHR, exception));
+            console.log('Request',params.post_data ? 'POST' : 'GET','time:',time,'error of '+redactUrl(params.url)+' :', errorDecode(jqXHR, exception));
 
             if(params.before_error) params.before_error(jqXHR, exception);
 

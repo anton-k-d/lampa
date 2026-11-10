@@ -43,7 +43,7 @@ npm --prefix server ci
 npm --prefix server test
 ```
 
-The server implements HTTP configuration, revision, preview, and rollback endpoints and the LAN admin panel without authentication. Pairing, sync, a CLI, and the Lampa client connection remain future work. See [configuration system](config-system.md) for the contract and implementation boundary.
+The server implements HTTP configuration, revision, preview, and rollback endpoints and the LAN admin panel without authentication. Pairing, sync and a CLI remain future work; see [client configuration](client-config.md) for WEB/MSX integration. See [configuration system](config-system.md) for the contract and implementation boundary.
 
 Place SQLite on a local filesystem outside Git; WAL, foreign keys, a 5000 ms busy timeout and FULL synchronous mode are configured by the core. Back up a consistent database with SQLite's backup facilities, or close all connections before copying the database; copying only the main file while WAL is active can lose committed data. Do not use a network mount. Database files and WAL/SHM companions must not be committed. Real Pi/ARM64 testing remains outstanding.
 
@@ -80,8 +80,9 @@ The database parent directory must be owned by the server user and private
 (mode `0700`); the server creates a missing parent directory with that mode
 and uses mode `0600` for its database file. Use a dedicated directory rather
 than changing permissions on a shared directory such as `/tmp`.
-The panel stores settings only: client connection and service integrations
-are not implemented yet. Existing local application settings are not migrated.
+WEB/MSX clients apply the managed connections through the same-origin client-config
+projection; see [client configuration](client-config.md). Existing local settings
+are preserved under a runtime overlay, not migrated.
 
 Run backend tests with `npm --prefix server test`. For real-browser tests run
 `npx --prefix server playwright install chromium` and

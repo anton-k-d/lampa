@@ -4,6 +4,7 @@ import Storage from './storage/storage'
 import Arrays from '../utils/arrays'
 import Utils from '../utils/utils'
 import TMDBProxy from './tmdb/proxy'
+import HomeConfig from './home/config.mjs'
 
 /**
  * Короче, постоянно пишут (почему нет картинок?)
@@ -61,6 +62,7 @@ let extract = (call, error)=>{
 }
 
 function task(call){
+    if(HomeConfig.metadata()) return call && call()
     if(!window.lampa_settings.geo) return call && call()
 
     extract((country)=>{

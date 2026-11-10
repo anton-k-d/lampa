@@ -5,6 +5,7 @@ import Utils from '../../utils/utils.js'
 import TMDB from './tmdb.js'
 import Settings from '../../interaction/settings/settings.js'
 import Arrays from '../../utils/arrays.js'
+import HomeConfig from '../home/config.mjs'
 
 function ImageMirror(){
     let stat    = []
@@ -65,6 +66,7 @@ function ImageMirror(){
 }
 
 function init(){
+    if(HomeConfig.metadata()) return
     let tmdb_proxy = {
         name: 'TMDB Proxy',
         version: '1.0.6',
@@ -88,18 +90,21 @@ function init(){
     }
 
     TMDB.image = function(url){
+        if(HomeConfig.metadata()) return HomeConfig.metadata() + '/image/' + url.replace(/^\/+/, '')
         let base  = Utils.protocol() + 'image.tmdb.org/' + url
 
         return Utils.addUrlComponent(filter(Storage.field('proxy_tmdb') ? Utils.protocol() + IMG.current() + url : base), 'email=' + encodeURIComponent(email()))
     }
 
     TMDB.api = function(url){
+        if(HomeConfig.metadata()) return HomeConfig.metadata() + '/3/' + url.replace(/^\/+/, '')
         let base  = Utils.protocol() + 'api.themoviedb.org/3/' + url
 
         return Utils.addUrlComponent(filter(Storage.field('proxy_tmdb') ? Utils.protocol() + tmdb_proxy.path_api + url : base), 'email=' + encodeURIComponent(email()))
     }
 
     TMDB.broken = function(url){
+        if(HomeConfig.metadata()) return
         IMG.broken(url)
     }
 

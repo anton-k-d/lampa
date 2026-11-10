@@ -1,5 +1,6 @@
 import Storage from '../storage/storage'
 import Utils from '../../utils/utils'
+import HomeConfig from '../home/config.mjs'
 
 let broken_images = 0
 
@@ -19,6 +20,7 @@ function proxy(name){
  * @return {string} Проксированный URL запроса
  */
 function api(url){
+    if(HomeConfig.metadata()) return HomeConfig.metadata() + '/3/' + url.replace(/^\/+/, '')
     let base  = Utils.protocol() + 'api.themoviedb.org/3/' + url
 
     return Storage.field('proxy_tmdb') && Storage.field('tmdb_proxy_api') ? proxy('tmdb_proxy_api') + '/' + base : base
@@ -30,6 +32,7 @@ function api(url){
  * @return {string} Проксированный URL изображения
  */
 function image(url){
+    if(HomeConfig.metadata()) return HomeConfig.metadata() + '/image/' + url.replace(/^\/+/, '')
     let base  = Utils.protocol() + 'image.tmdb.org/' + url
 
     return Storage.field('proxy_tmdb') && Storage.field('tmdb_proxy_image') ? proxy('tmdb_proxy_image') + '/' + base : base
@@ -39,6 +42,7 @@ function image(url){
  * Сообщить о сломанных изображениях
  */
 function broken(){
+    if(HomeConfig.metadata()) return
     broken_images++
 
     if(broken_images > 50){
@@ -53,6 +57,7 @@ function broken(){
  * @return {string} Ключ TMDB
  */
 function key(){
+    if(HomeConfig.metadata()) return ''
     return '4ef0d7355d9ffb5151e987764708ce96'
 }
 

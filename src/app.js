@@ -98,6 +98,8 @@ import HoverSwitcher from './core/switcher'
 import Ai from './core/api/sources/ai'
 import Mirrors from './core/mirrors'
 import Task from './core/loading'
+import HomeConfig from './core/home/config.mjs'
+import HomeSettings from './interaction/home_settings'
 import App from './interaction/app'
 import LoadingProgress from './interaction/loading_progress'
 import Logs from './interaction/logs'
@@ -365,7 +367,8 @@ function initClass(){
         ContentRows,
         Emit,
         Router,
-        Timer
+        Timer,
+        HomeConfig
     }
 }
 
@@ -388,6 +391,7 @@ function prepareApp(){
     LoadingProgress.status('DeviceInput init')
 
     Params.init()
+    HomeSettings.init()
 
     LoadingProgress.status('Params init')
 
@@ -782,6 +786,17 @@ function loadTask(){
         LoadingProgress.status('Storage load reserve')
         
         Storage.task(next)
+    })
+
+    Task.queue((next)=>{
+        LoadingProgress.status('Home configuration')
+        HomeConfig.subscribe((changed)=>{
+            changed.filter(name=>name !== 'jackett_key' && name !== 'jackett_key_two' && name !== 'metadata').forEach(name=>{
+                Storage.listener.send('change',{name,value:Storage.get(name)})
+            })
+            if(changed.some(name=>name.indexOf('jackett_') === 0 || name === 'parser_use')) Storage.listener.send('change',{name:'parse_in_search'})
+        })
+        HomeConfig.init(next)
     })
 
     Task.queue((next)=>{

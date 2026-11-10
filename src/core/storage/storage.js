@@ -7,6 +7,7 @@ import Lang from '../lang'
 import Cache from '../../utils/cache'
 import Socket from '../socket'
 import Api from '../account/api'
+import HomeConfig from '../home/config.mjs'
 
 let listener = Subscribe();
 let readed   = {}
@@ -135,6 +136,7 @@ function isQuotaError(e){
  */
 
 function get(name, empty){
+    if(HomeConfig.has(name)) return HomeConfig.get(name)
     let item
     let value = readed[name]
 
@@ -187,6 +189,7 @@ function get(name, empty){
  */
 
 function value(name,empty){
+    if(HomeConfig.has(name)) return String(HomeConfig.get(name))
     let item = window.localStorage.getItem(name)
 
     if(item === null && reserve.hasOwnProperty(name)) item = reserve[name] + ''
@@ -206,6 +209,8 @@ function value(name,empty){
  */
 
 function set(name, value, nolisten, callerror){
+    // Server-owned fields are read-only until their assignment is removed.
+    if(HomeConfig.has(name)) return
     readed[name] = value
 
     let write

@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolveManagedConfig, validateResolvedConfig } from '../config/resolve.mjs';
 import { ConfigError } from '../config/errors.mjs';
+import { clientConfiguration } from './client-config.mjs';
 import { validateLiteValues } from './lite-policy.mjs';
 
 const schema = JSON.parse(readFileSync(new URL('../../../schemas/managed-config.v1.schema.json', import.meta.url), 'utf8'));
@@ -79,6 +80,14 @@ export async function configRoute(req, pathname, url, deps, body) {
     const params = mutation(req, checkScope(input.scopeKey));
     const result = service.rollback({...params,targetRevision:input.targetRevision,reason:input.reason ?? null});
     return {body:{document:result.document,revision:result.revision},etag:`"r-${result.revision}"`};
+  }
+  const client = /^\/v1\/devices\/([^/]+)\/client-config$/.exec(pathname);
+  if (client && method === 'GET') {
+    const scope = checkScope(`device:${decodeURIComponent(client[1])}`);
+    const projected = clientConfiguration(repository.listHeads(),scope.slice(7),runtimeStore);
+    const etag = `"c1-${projected.revisions.global}-${projected.revisions.device}"`;
+    if (req.headers['if-none-match']?.split(',').map(v => v.trim()).includes(etag)) return {status:304,etag};
+    return {body:projected,etag};
   }
   const effective = /^\/v1\/devices\/([^/]+)\/config$/.exec(pathname);
   if (effective && method === 'GET') {

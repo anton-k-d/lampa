@@ -1,6 +1,6 @@
 # Система конфигурации, Admin и синхронизация
 
-Статус: реализованы ядро конфигурации, HTTP API и LAN-панель. Клиент Lampa ещё не подключён. Точный список реализованных маршрутов приведён в разделе LAN administration; остальные маршруты ниже — проект, а не API Lampa или существующего proxy. Основание: `yumata/lampa-source@86c2b099b19f7058ea304dfa43a8b1e18a2e0492`.
+Статус: реализованы ядро конфигурации, HTTP API и LAN-панель. WEB/MSX-клиент подключён через [LAN-проекцию](client-config.md). Точный список реализованных маршрутов приведён в разделе LAN administration; остальные маршруты ниже — проект, а не API Lampa или существующего proxy. Основание: `yumata/lampa-source@86c2b099b19f7058ea304dfa43a8b1e18a2e0492`.
 
 ## Актуальный локальный scope
 
@@ -8,7 +8,7 @@
 
 ## Внутреннее ядро
 
-Контракт документа — [JSON Schema Draft 2020-12](../schemas/managed-config.v1.schema.json). Service выполняет проверку внутри транзакции, включая все device overrides при изменении global; preview только читает текущие heads и не резервирует revision. Policy передаётся доверенным backend как живые Sets/Map, а не как данные документа. URL всех плагинов, включая выключенные, проверяются на отсутствие userinfo, query и fragment; включённые также должны совпадать с reviewed registry. Секреты хранятся вне БД, в документах разрешены только ссылки.
+Контракт документа — [JSON Schema Draft 2020-12](../schemas/managed-config.v1.schema.json). Service выполняет проверку внутри транзакции, включая все device overrides при изменении global; preview только читает текущие heads и не резервирует revision. Policy передаётся доверенным backend как живые Sets/Map, а не как данные документа. URL всех плагинов, включая выключенные, проверяются на отсутствие userinfo, query и fragment; включённые также должны совпадать с reviewed registry. В managed-документах разрешены только ссылки; runtime secrets хранятся в той же приватной SQLite БД.
 
 Пример внутреннего использования (не сервер и не CLI):
 
@@ -30,7 +30,7 @@ try {
 }
 ```
 
-Preview не гарантирует успешную запись: publish повторяет проверку с актуальными heads и policy. Инструкции по тестированию и backup — в [development](development.md). Pairing, sync, installer и подключение клиента пока не реализованы.
+Preview не гарантирует успешную запись: publish повторяет проверку с актуальными heads и policy. Инструкции по тестированию и backup — в [development](development.md). Pairing и sync пока не реализованы; WEB/MSX-проекция и Docker-доставка описаны отдельно.
 
 ## Что уже есть в исходниках
 
@@ -171,12 +171,12 @@ contains no secret values. Import previews the document and refuses unresolved
 placeholders; references must be explicitly replaced with configured references
 on the target server. Secrets are stored as plaintext in a private SQLite file,
 not encrypted at rest. This trusted-LAN service has no authentication and must
-not be exposed to the public Internet. Configuration storage does not yet
-connect Lampa clients or proxy requests to the configured services.
+not be exposed to the public Internet. WEB/MSX clients now apply the connections directly through a
+[LAN client projection](client-config.md); this server does not proxy connector requests.
 
 The implemented HTTP routes are `/v1/admin/config/{schema,global,validate,revisions,rollback}`,
 `/v1/admin/devices/{id}/config`, `/v1/admin/secrets`,
 `/v1/admin/secrets/status`, `/v1/admin/lan-origins`, and
-`/v1/devices/{id}/config`. Older descriptions of authentication, pairing, or
+`/v1/devices/{id}/config` and `/v1/devices/{id}/client-config`. Older descriptions of authentication, pairing, or
 client routes elsewhere in this document are proposals, not implemented
-prerequisites. The client bridge is future work.
+prerequisites. The selected Jackett key is delivered by the new client projection under the user-approved LAN policy; the generic effective route still exposes references only.
