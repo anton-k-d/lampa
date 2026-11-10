@@ -1,3 +1,4 @@
+import { audioPreference, preferredAudioTracks } from './torrents/audio-preference.mjs'
 import Controller from '../core/controller'
 import Reguest from '../utils/reguest'
 import Scroll from '../interaction/scroll'
@@ -705,6 +706,8 @@ function component(object){
     }
 
     this.showResults = function(){
+        // Keep the chosen sort within each audio preference group. Unknown releases remain available.
+        filtred.sort((a,b)=>audioPreference(b) - audioPreference(a))
         total_pages = Math.ceil(filtred.length / 20)
 
         if(filtred.length){
@@ -821,7 +824,7 @@ function component(object){
 
                 if(!quality && video) ffprobe_tags.push({media: 'resolution',value: Utils.qualityToText(Utils.resolutionToQuality(video.width, video.height, 'p'))})
 
-                let audio = element.ffprobe.filter(a=>a.codec_type == 'audio' && a.tags)
+                let audio = preferredAudioTracks(element.ffprobe.filter(a=>a.codec_type == 'audio' && a.tags))
                 let subs  = element.ffprobe.filter(a=>a.codec_type == 'subtitle' && a.tags)
                 let voice = Arrays.clone(element.info && element.info.voices ? element.info.voices : [])
 
@@ -886,6 +889,10 @@ function component(object){
                 if($('> div', ffprobe_elem).length) ffprobe_elem.removeClass('hide')
 
                 if(need_remove_ffprobe) delete element.ffprobe
+            }
+
+            if(audioPreference(element) === 0){
+                item.find('.torrent-item__ffprobe').append('<div class="m-audio">Русская аудиодорожка не подтверждена</div>').removeClass('hide')
             }
 
             if (!bitrate) item.find('.bitrate').remove()

@@ -64,3 +64,15 @@ test('late response after a timeout cannot overwrite a newer configuration', asy
   await new Promise(resolve=>setImmediate(resolve));
   assert.equal(client.get('animation'),false); client.stop();
 });
+
+test('refresh reports applied changes, unchanged responses and errors', async () => {
+  let response;
+  const client=make(memory(),async()=>response);
+  response={status:200,body:snapshot(client.deviceId(),{animation:false})};
+  assert.equal((await client.init()).outcome,'applied');
+  response={status:304}; assert.equal((await client.refresh()).outcome,'unchanged');
+  response={status:200,body:snapshot(client.deviceId(),{animation:true})};
+  assert.deepEqual(await client.refresh(),{outcome:'applied',revisions:{global:1,device:0},changed:['animation']});
+  response={status:500}; assert.equal((await client.refresh()).outcome,'error');
+  assert.equal(client.status().state,'offline');
+});

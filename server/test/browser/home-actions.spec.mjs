@@ -1,0 +1,46 @@
+import {test, expect} from '@playwright/test';
+import {spawn} from 'node:child_process';
+import {mkdtemp,rm} from 'node:fs/promises';
+import {tmpdir} from 'node:os';
+import {join} from 'node:path';
+let server,dir,base;
+test.beforeAll(async()=>{
+ dir=await mkdtemp(join(tmpdir(),'lampa-home-action-'));
+ server=spawn(process.execPath,['src/main.mjs'],{cwd:process.cwd(),env:{...process.env,PORT:'0',RUNTIME_DIRECTORY:dir}});
+ base=await new Promise((resolve,reject)=>{server.stdout.on('data',data=>{const m=String(data).match(/Server listening on [^:]+:(\d+)/);if(m)resolve(`http://127.0.0.1:${m[1]}`)});server.on('exit',code=>reject(Error(`server exited ${code}`)));});
+});
+test.afterAll(async()=>{server.kill('SIGTERM');await new Promise(resolve=>server.once('exit',resolve));await rm(dir,{recursive:true,force:true});});
+test('manual refresh shows started, unchanged, applied and offline outcomes',async({page})=>{
+ test.setTimeout(30000);
+ await page.goto(base+'/admin/');
+ await page.locator('#tmdb').fill('https://metadata.fixture');
+ await page.locator('.primary').click();
+ await expect(page.locator('#status')).toContainText('Сохранено');
+ await page.route('**/*',route=>{
+  const request=route.request();
+  if(request.url().startsWith(base+'/')) return route.continue();
+  if(request.url().startsWith('https://metadata.fixture/') && ['xhr','fetch'].includes(request.resourceType())) return route.fulfill({json:{results:[],page:1,total_pages:1},headers:{'access-control-allow-origin':'*'}});
+  return route.abort();
+ });
+ await page.addInitScript(()=>{localStorage.setItem('language','ru'); localStorage.setItem('source','cub');});
+ await page.goto(base+'/app/');
+ await page.waitForFunction(()=>window.Lampa?.HomeConfig?.status().state==='online');
+ await page.waitForFunction(()=>window.appready===true);
+ await page.evaluate(()=>{if(!Lampa.Settings.render(true).isConnected) document.body.appendChild(Lampa.Settings.render(true)); Lampa.Settings.create('home');});
+ const button=page.locator('.settings-param').filter({hasText:'Получить настройки с Pi'});
+ let release;
+ await page.route('**/v1/devices/*/client-config',async route=>{await new Promise(resolve=>{release=resolve});await route.continue();});
+ await button.evaluate(element=>$(element).trigger('hover:enter'));
+ await expect(page.locator('.noty__text')).toHaveText('Получение настроек с Pi…');
+ await expect.poll(()=>!!release).toBe(true); release();
+ await expect(page.locator('.noty__text')).toHaveText('Настройки с Pi не изменились');
+ await page.unroute('**/v1/devices/*/client-config');
+ const stored=await (await page.request.get(base+'/v1/admin/config/global')).json();
+ stored.document.values.metadata.endpoint.url='https://changed.fixture';
+ expect((await page.request.put(base+'/v1/admin/config/global',{headers:{'if-match':`"r-${stored.revision}"`,'idempotency-key':'home-action'},data:stored.document})).status()).toBe(200);
+ await button.evaluate(element=>$(element).trigger('hover:enter'));
+ await expect(page.locator('.noty__text')).toHaveText('Настройки с Pi применены');
+ await page.route('**/v1/devices/*/client-config',route=>route.abort());
+ await button.evaluate(element=>$(element).trigger('hover:enter'));
+ await expect(page.locator('.noty__text')).toHaveText('Не удалось получить настройки с Pi');
+});

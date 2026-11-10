@@ -43,7 +43,7 @@ export function createHomeConfig(options) {
         const keys = Object.keys(previous).concat(Object.keys(value.settings));
         const changed = keys.filter((key,index) => keys.indexOf(key) === index && previous[key] !== value.settings[key]);
         if ((current && current.metadata ? current.metadata.baseUrl : '') !== (value.metadata ? value.metadata.baseUrl : '')) changed.push('metadata');
-        current = value; notify(changed);
+        current = value; notify(changed); return changed;
     }
     function refresh() {
         if (pending) return pending;
@@ -51,6 +51,8 @@ export function createHomeConfig(options) {
         const expired = new Promise((resolve,reject) => { deadline = setTimeout(() => reject(new Error('timeout')),timeout); });
         const work = Promise.resolve().then(() => options.request('/v1/devices/' + id + '/client-config',etag,timeout));
         pending = Promise.race([work,expired]).then(response => {
+            let changed = [];
+            const previousRevisions = current && current.revisions;
             if (response.status === 304) {
                 if (!current) throw new Error('uncached response');
             } else {
@@ -58,13 +60,14 @@ export function createHomeConfig(options) {
                 // Persist first; storage failure must not prevent an online session from working.
                 try { storage.setItem(cacheKey,JSON.stringify(response.body)); } catch (e) {}
                 etag = response.etag || '';
-                apply(response.body);
+                changed = apply(response.body);
             }
             state = 'online';
-        },() => { state = 'offline'; }).then(() => {
-            clearTimeout(deadline); pending = null; notify();
-        },() => {
-            clearTimeout(deadline); pending = null; state = 'offline'; notify();
+            const revisions = current.revisions;
+            const revisionChanged = !previousRevisions || previousRevisions.global !== revisions.global || previousRevisions.device !== revisions.device;
+            return {outcome: changed.length || revisionChanged ? 'applied' : 'unchanged', revisions, changed};
+        }).catch(() => { state = 'offline'; return {outcome:'error'}; }).then(result => {
+            clearTimeout(deadline); pending = null; notify(); return result;
         });
         return pending;
     }
@@ -119,7 +122,7 @@ const HomeConfig = {
     get(key) { const client = current(); return client ? client.get(key) : undefined; },
     metadata() { const client = current(); return client ? client.metadata() : ''; },
     status() { const client = current(); return client ? client.status() : {state:'local',deviceId:'',origin:''}; },
-    refresh() { const client = current(); return client ? client.refresh() : Promise.resolve(); },
+    refresh() { const client = current(); return client ? client.refresh() : Promise.resolve({outcome:'error'}); },
     subscribe(listener) { const client = current(); return client ? client.subscribe(listener) : () => {}; }
 };
 export default HomeConfig;

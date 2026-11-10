@@ -2,6 +2,7 @@ import Api from './settings/api'
 import Home from '../core/home/config.mjs'
 import Storage from '../core/storage/storage'
 import Settings from './settings/settings'
+import Noty from './noty'
 
 function init(){
     let rows = []
@@ -32,7 +33,20 @@ function init(){
             item.append(description)
         }
     }))
+    let refreshing = false, refreshRow
     Api.addParam({component:'home',param:{name:'home_refresh',type:'button'},field:{name:'Получить настройки с Pi'},
-        onChange:()=>Home.refresh()})
+        onRender:item=>{refreshRow=item},
+        onChange:()=>{
+            if(refreshing) return
+            refreshing = true
+            if(refreshRow) refreshRow.attr('aria-disabled','true')
+            Noty.show('Получение настроек с Pi…')
+            Home.refresh().then(result=>{
+                Noty.show(result.outcome === 'applied' ? 'Настройки с Pi применены' : result.outcome === 'unchanged' ? 'Настройки с Pi не изменились' : 'Не удалось получить настройки с Pi')
+            }).catch(()=>Noty.show('Не удалось получить настройки с Pi')).then(()=>{
+                refreshing = false
+                if(refreshRow) refreshRow.removeAttr('aria-disabled')
+            })
+        }})
 }
 export default {init}
