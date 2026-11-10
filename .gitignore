@@ -1,0 +1,16 @@
+node_modules/
+bot/
+build/
+dest/
+temp/
+.idea/
+.claude/
+.superpowers/
+.DS_Store
+
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm

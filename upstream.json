@@ -1,0 +1,24 @@
+{
+  "repository": "https://github.com/yumata/lampa-source",
+  "commit": "86c2b099b19f7058ea304dfa43a8b1e18a2e0492",
+  "appVersion": "3.4.6",
+  "supplementalAssets": {
+    "repository": "https://github.com/yumata/lampa",
+    "commit": "6fcdfab624f98ac0f7a91244e3d3b637f104a8c2",
+    "note": "Static resources absent from lampa-source; webOSTV.js identifies itself as version 1.2.4.",
+    "sha256": {
+      "public/icons/android-chrome-192x192.png": "7d90a4f1e1f563217059c9e524864783191d651ce3692c526b9ffa3db58622d5",
+      "public/icons/android-chrome-384x384.png": "52049b2c74cc783ffc581baf674240536341c9ed66b2f410acb39e1181b7b7c6",
+      "public/icons/apple-touch-icon.png": "274ca82e302d875b3f397abc8b7a0c38a96044064af17e3ab8e86a06bfc2ef80",
+      "public/icons/browserconfig.xml": "3b7972b3a0bfd063180aea0ea47ec3038631bf46ce17f5a8d1855876636fc407",
+      "public/icons/favicon-16x16.png": "4b8043b11e9ba1e38bfb99ad5992283db0d5655f4d24c61e35c98302fa14631c",
+      "public/icons/favicon-32x32.png": "d12de7aab9fb2616577941810292a61fae2594730ff9e1dfc67f77139bc46ec4",
+      "public/icons/favicon.ico": "db991bcf19d22a0228ddfc9c2719937da397df17ae48e864c09c5f37e91cec72",
+      "public/icons/mstile-150x150.png": "e391ac9497c9423abe66524f28fe72e9cded102829c09fe814693f2f4bb91cae",
+      "public/icons/safari-pinned-tab.svg": "040e08e54aa8742f40dddf95580664a6bdb655f6ebf4e072074a10e92bc09ad5",
+      "public/icons/site.webmanifest": "bd4be6d07981ed7cd95cd126bf5e787e17c8925d369dd4f908e6952d7c5dd299",
+      "index/webos/webOSTVjs-1.2.4/LICENSE-2.0.txt": "cb5e8e7e5f4a3988e1063c142c60dc2df75605f4c46515e776e3aca6df976e14",
+      "index/webos/webOSTVjs-1.2.4/webOSTV.js": "e79cf7f731584135d9fd06f3e9e6da872b9f9b94d938f350f13ceb9520e7c540"
+    }
+  }
+}

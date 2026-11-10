@@ -1,0 +1,21 @@
+{
+  "schemaVersion": 1,
+  "scope": "global",
+  "values": {
+    "ui": {
+      "theme": "dark",
+      "density": "comfortable",
+      "animations": true
+    },
+    "metadata": {
+      "providerId": "tmdb",
+      "endpoint": {
+        "url": "https://metadata.example.invalid/v1",
+        "mode": "gateway"
+      }
+    },
+    "lockedPaths": [
+      "/metadata/endpoint"
+    ]
+  }
+}

@@ -1,0 +1,7 @@
+{
+  "name": "lampa-config-core",
+  "private": true,
+  "type": "module",
+  "scripts": {"test": "node --test test/config/*.test.mjs"},
+  "dependencies": {"ajv": "8.20.0", "ajv-formats": "3.0.1"}
+}

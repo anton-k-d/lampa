@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "scope": "device",
+  "deviceId": "living-room-tv",
+  "values": {
+    "ui": {
+      "density": "compact",
+      "animations": false
+    },
+    "lockedPaths": [
+      "/ui/animations"
+    ]
+  }
+}

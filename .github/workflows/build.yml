@@ -1,0 +1,55 @@
+name: Build and test
+
+"on":
+  push:
+  pull_request:
+
+jobs:
+  build-and-helpers:
+    runs-on: ubuntu-latest
+    env:
+      SOURCE_DATE_EPOCH: '1700000000'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+      - run: npm install --global npm@11.9.0
+      - run: npm ci
+      - run: node --test scripts/build.test.mjs
+      - name: Build and verify reproducibility
+        shell: bash
+        run: |
+          set -euo pipefail
+          for target in web webos; do
+            if [ "$target" = web ]; then output=build/github/lampa; else output=build/webos; fi
+            npm run "build:$target"
+            node scripts/check-build.mjs "$target"
+            (cd "$output" && find . -type f -print0 | sort -z | xargs -0 sha256sum) > "$RUNNER_TEMP/$target-first.sha256"
+            npm run "build:$target"
+            node scripts/check-build.mjs "$target"
+            (cd "$output" && find . -type f -print0 | sort -z | xargs -0 sha256sum) > "$RUNNER_TEMP/$target-second.sha256"
+            diff -u "$RUNNER_TEMP/$target-first.sha256" "$RUNNER_TEMP/$target-second.sha256"
+          done
+
+  upstream-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+      - run: npm install --global npm@11.9.0
+      - run: npm ci
+      - run: npx --no-install vitest run --threads=false
+
+  config-core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.22.1'
+      - run: npm install --global npm@11.9.0
+      - run: npm --prefix server ci
+      - run: npm --prefix server test
