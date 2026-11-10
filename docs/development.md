@@ -62,6 +62,8 @@ Open `http://192.168.1.50:8080/admin/` using the actual LAN address. Binding
 `HOST=0.0.0.0` alone does not allow requests addressed to that IP; include
 each hostname or IP used by browsers in `ALLOWED_HOSTS`, without ports.
 
+The panel asks for confirmation of previously unapproved HTTP origins when validating or saving connection URLs. HTTP transmits data unencrypted. Origins may also be added manually; cancelling confirmation makes no changes.
+
 Runtime environment variables:
 
 - `HOST`: bind address, default `127.0.0.1`.

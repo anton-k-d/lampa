@@ -147,18 +147,58 @@ function validUrls() {
         ok =
           ["http:", "https:"].includes(u.protocol) &&
           !u.username &&
-          !u.password;
+          !u.password && !u.search && !u.hash && !value.includes("?") && !value.includes("#");
       } catch {
         ok = false;
       }
     }
     $(id + "-error").textContent = ok
       ? ""
-      : "Введите корректный HTTP или HTTPS URL без пароля.";
+      : "Введите корректный HTTP или HTTPS URL без имени пользователя, пароля, параметров запроса и фрагмента.";
     $(id).setAttribute("aria-invalid", String(!ok));
     valid &&= ok;
   }
   return valid;
+}
+async function approveOrigins(doc) {
+  const values = doc.values;
+  const urls = [values.metadata?.endpoint?.url, values.parser?.endpoint?.url,
+    values.torrServer?.primary?.url, values.torrServer?.backup?.url,
+    ...(values.sources || []).map(source => source.endpoint?.url),
+    ...(values.plugins || []).map(plugin => plugin.url)].filter(Boolean);
+  const origins = new Set();
+  for (const value of urls) {
+    let url;
+    try { url = new URL(value); } catch { throw new Error("Проверьте адреса подключений."); }
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password ||
+        url.search || url.hash || value.includes("?") || value.includes("#"))
+      throw new Error("Проверьте адреса: уберите имя пользователя, пароль, параметры запроса и фрагмент.");
+    if (url.protocol === "http:") {
+      const host = url.hostname;
+      const parts = host.split(".");
+      const ipv4 = parts.length === 4 && parts.every(part => /^\d+$/.test(part));
+      if ((ipv4 && (+parts[0] === 0 || +parts[0] >= 224 || (+parts[0] === 169 && +parts[1] === 254))) ||
+          host === "metadata.google.internal" || host.includes(":") ||
+          host.length > 253 || !parts.every(part => part.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(part)))
+        throw new Error("Проверьте адреса подключений: этот HTTP-адрес недопустим.");
+      origins.add(url.origin);
+    }
+  }
+  if (!origins.size) return;
+  const allowed = new Set((await api("/v1/admin/lan-origins")).origins);
+  const missing = [...origins].filter(origin => !allowed.has(origin));
+  if (!missing.length) return;
+  if (missing.some(origin => {
+    const host = new URL(origin).hostname;
+    return host === "localhost" || host.endsWith(".localhost") || /^127\.\d+\.\d+\.\d+$/.test(host);
+  }))
+    throw new Error("Проверьте адреса подключений: loopback HTTP-адрес недопустим без разрешения режима разработки.");
+  if (!confirm("Разрешить HTTP для следующих адресов? Данные HTTP передаются без шифрования.\n\n" + missing.join("\n")))
+    throw new Error("Разрешение HTTP отменено.");
+  for (const origin of missing) {
+    const result = await api("/v1/admin/lan-origins", json("POST", { origin }));
+    showOrigins(result.origins);
+  }
 }
 async function preview(doc) {
   const result = await api(
@@ -180,7 +220,7 @@ async function preview(doc) {
         const label = labels[issue.path] || "URL подключения";
         const inputIds = {"/metadata/endpoint/url":"tmdb", "/parser/endpoint/url":"jackett", "/torrServer/primary/url":"torr"};
         const value = issue.path.split("/").slice(1).reduce((current, key) => current?.[key], doc.values);
-        const detail = "проверьте URL в действующих настройках: для HTTP отдельно разрешите origin (http://IP:порт) в разделе ниже; уберите имя пользователя, пароль, параметры запроса и фрагмент.";
+        const detail = "проверьте URL в действующих настройках: для HTTP подтвердите разрешение origin; уберите имя пользователя, пароль, параметры запроса и фрагмент.";
         const id = inputIds[issue.path];
         if (id && value) {
           $(id + "-error").textContent = detail;
@@ -196,7 +236,9 @@ async function validate() {
     return;
   }
   try {
-    await preview(documentFromForm());
+    const doc = documentFromForm();
+    await approveOrigins(doc);
+    await preview(doc);
     message("Проверка пройдена.");
   } catch (e) {
     message(e.message);
@@ -224,6 +266,7 @@ $("form").addEventListener("submit", async (event) => {
       ($("metadataKey").value && !doc.values.metadata?.endpoint)
     )
       throw new Error("Для ключа укажите адрес соответствующей службы.");
+    await approveOrigins(doc);
     await preview(doc);
     const signature = JSON.stringify([
       doc,
@@ -330,14 +373,20 @@ async function loadOrigins() {
   catch { $("originStatus").textContent = "Не удалось загрузить разрешённые HTTP origin."; }
 }
 $("allow").addEventListener("click", async () => {
-  if (!$("origin").value.trim().startsWith("http://")) {
-    $("originStatus").textContent = "Укажите origin со схемой HTTP, например http://192.168.1.10:8090 (без пути).";
+  let origin;
+  try {
+    const value = $("origin").value.trim();
+    const url = new URL(value);
+    if (url.protocol !== "http:" || url.username || url.password || url.search || url.hash || value.includes("?") || value.includes("#")) throw new Error();
+    origin = url.origin;
+  } catch {
+    $("originStatus").textContent = "Укажите корректный HTTP URL, например http://192.168.1.10:8090, без учётных данных, параметров и фрагмента.";
     return;
   }
   try {
     const result = await api(
       "/v1/admin/lan-origins",
-      json("POST", { origin: $("origin").value.trim() }),
+      json("POST", { origin }),
     );
     showOrigins(result.origins);
     $("originStatus").textContent = "HTTP разрешён отдельно от настроек.";

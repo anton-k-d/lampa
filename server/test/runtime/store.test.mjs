@@ -24,10 +24,10 @@ test('migration preserves revisions and runtime refs persist without exposing va
   assert.deepEqual([...reopened.context.providerIds],['tmdb']); assert.equal(reopened.context.reviewedPlugins.size,0);
 });
 
-test('origin policy only accepts canonical private HTTP origins', t => {
+test('origin policy accepts canonical HTTP origins and rejects unsafe hosts', t => {
   const {path}=setup(t); const db=openConfigDatabase(path); t.after(()=>db.close()); const s=createRuntimeStore(db);
-  for (const value of ['http://10.0.0.1','http://172.16.0.1:8080','http://192.168.1.1','http://server.local:8080']) { s.allowLanOrigin(value); assert.ok(s.context.allowedLanOrigins.has(value)); }
-  for (const value of ['https://192.168.1.1','http://127.0.0.1','http://169.254.169.254','http://8.8.8.8','http://172.32.0.1','http://example.com','http://user@server.local','http://server.local/path','http://server.local?','http://server.local#','http://SERVER.local','http://10.0.0.1:80']) assert.throws(()=>s.allowLanOrigin(value),value);
+  for (const value of ['http://10.0.0.1','http://172.16.0.1:8080','http://192.168.1.1','http://server.local:8080','http://5.35.103.226:49117','http://example.com']) { s.allowLanOrigin(value); assert.ok(s.context.allowedLanOrigins.has(value)); }
+  for (const value of ['https://192.168.1.1','http://127.0.0.1','http://169.254.169.254','http://user@server.local','http://server.local/path','http://server.local?','http://server.local#','http://SERVER.local','http://10.0.0.1:80']) assert.throws(()=>s.allowLanOrigin(value),value);
   const dev=createRuntimeStore(db,{allowLoopbackForDevelopment:true}); dev.allowLanOrigin('http://127.0.0.1:1234'); assert.ok(dev.context.allowedLanOrigins.has('http://127.0.0.1:1234'));
 });
 

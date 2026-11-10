@@ -12,10 +12,11 @@ function validOrigin(origin, allowLoopback) {
     const host = url.hostname;
     if (isIP(host) === 4) {
       const [a,b] = host.split('.').map(Number);
-      return a === 10 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (allowLoopback && a === 127);
+      return a !== 0 && a < 224 && !(a === 169 && b === 254) && (a !== 127 || allowLoopback);
     }
-    if (allowLoopback && host === 'localhost') return true;
-    return host.endsWith('.local') && host.length > 6 && host.split('.').every(label => /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label));
+    if (host === 'localhost' || host.endsWith('.localhost')) return allowLoopback;
+    if (host === 'metadata.google.internal') return false;
+    return host.length <= 253 && host.split('.').every(label => label.length <= 63 && /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/.test(label));
   } catch { return false; }
 }
 

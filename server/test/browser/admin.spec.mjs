@@ -380,29 +380,6 @@ test("службы можно отключить при удалении адр�
   expect(result.document.values.torrServer.enabled).toBe(true);
 });
 
-test("ошибка HTTP указывает подключение и отдельное разрешение; после разрешения адрес сохраняется", async ({ page }) => {
-  await page.goto(base + "/admin/");
-  await expect(page.locator("#status")).toContainText("Открыта");
-  await page.locator("#jackett").fill("http://192.168.1.19:9117/api");
-  await page.locator(".primary").click();
-  await expect(page.locator("#status")).toContainText("Jackett");
-  await expect(page.locator("#status")).toContainText("разреш");
-  await expect(page.locator("#jackett-error")).toContainText("разреш");
-  expect((await (await page.request.get(base + "/v1/admin/lan-origins")).json()).origins).not.toContain("http://192.168.1.19:9117");
-  await page.locator("#origin").fill("http://192.168.1.19:9117");
-  await page.locator("#allow").click();
-  await expect(page.locator("#originStatus")).toContainText("разрешён");
-  await expect(page.locator("#allowedOrigins")).toContainText("http://192.168.1.19:9117");
-  await page.locator(".primary").click();
-  await expect(page.locator("#status")).toContainText("Сохранено");
-  await page.reload();
-  await expect(page.locator("#jackett")).toHaveValue("http://192.168.1.19:9117/api");
-  await page.locator("#jackett").fill("https://example.test/?token=synthetic-secret#fragment");
-  await page.locator(".primary").click();
-  await expect(page.locator("#status")).toContainText("параметр");
-  await expect(page.locator("#status")).not.toContainText("synthetic-secret");
-});
-
 test("origin без схемы показывает пример HTTP", async ({ page }) => {
   await page.goto(base + "/admin/");
   await page.locator("#origin").fill("192.168.88.216:8090");
@@ -417,10 +394,9 @@ test("несколько ошибок показаны вместе", async ({ p
   await page.locator("#jackett").fill("http://192.168.1.27:9117");
   await page.locator("#torr").fill("");
   await page.locator("#torrEnabled").selectOption("true");
+  page.once("dialog", d => d.accept());
   await page.locator("#validate").click();
   await expect(page.locator("#status")).toContainText("укажите адрес");
-  await expect(page.locator("#status")).toContainText("Jackett");
-  await expect(page.locator("#jackett-error")).toContainText("разреш");
 });
 
 test("ошибка унаследованного адреса не помечает пустое поле устройства", async ({ page }) => {
@@ -434,4 +410,56 @@ test("ошибка унаследованного адреса не помеча
   await page.locator("#validate").click();
   await expect(page.locator("#status")).toContainText("действующих настройках");
   await expect(page.locator("#jackett-error")).toHaveText("");
+});
+
+test("HTTP origins подтверждаются одним диалогом", async ({ page }) => {
+  await page.goto(base + "/admin/");
+  await expect(page.locator("#status")).toContainText("Открыта");
+  await page.locator("#jackett").fill("http://5.35.103.226:49117/api");
+  await page.locator("#torr").fill("http://5.35.103.226:49117/other");
+  await page.locator("#tmdb").fill("http://public.example:8123/path");
+  let count = 0;
+  page.on("dialog", async d => {
+    count++;
+
+    expect(d.message()).toContain("http://5.35.103.226:49117");
+    expect(d.message()).toContain("http://public.example:8123");
+    expect(d.message().match(/http:\/\/5\.35\.103\.226:49117/g)).toHaveLength(1);
+  await d.accept();
+  });
+  await page.locator("#validate").click();
+  await expect(page.locator("#status")).toContainText("Проверка пройдена");
+  await page.locator(".primary").click();
+  await expect(page.locator("#status")).toContainText("Сохранено");
+  expect(count).toBe(1);
+  await page.reload();
+  await expect(page.locator("#jackett")).toHaveValue("http://5.35.103.226:49117/api");
+});
+test("отмена и небезопасный URL не создают записей", async ({ page }) => {
+  await page.goto(base + "/admin/");
+  await expect(page.locator("#status")).toContainText("Открыта");
+  const get = async path => (await page.request.get(base + path)).json();
+  const paths = ["/v1/admin/config/global", "/v1/admin/lan-origins", "/v1/admin/secrets/status"];
+  const before = await Promise.all(paths.map(get));
+  await page.locator("#jackett").fill("http://cancel.example:9117/api");
+  await page.locator("#jackettKey").fill("synthetic-secret");
+  page.once("dialog", d => d.dismiss());
+  await page.locator(".primary").click();
+  await expect(page.locator("#status")).toContainText("отмен");
+  await page.locator("#tmdb").fill("https://example.test/?token=synthetic-secret#fragment");
+  await page.locator(".primary").click();
+  await expect(page.locator("#status")).toContainText("адрес");
+  await page.locator("#tmdb").fill("http://169.254.169.254/latest");
+  await page.locator(".primary").click();
+  await expect(page.locator("#status")).toContainText("недопустим");
+  await page.locator("#tmdb").fill("http://127.0.0.1:1234");
+  await page.locator(".primary").click();
+  await expect(page.locator("#status")).toContainText("недопустим");
+  expect(await Promise.all(paths.map(get))).toEqual(before);
+});
+test("ручное разрешение принимает публичный адрес с завершающей косой чертой", async ({ page }) => {
+  await page.goto(base + "/admin/");
+  await page.locator("#origin").fill("http://5.35.103.226:49118/");
+  await page.locator("#allow").click();
+  await expect(page.locator("#allowedOrigins")).toContainText("http://5.35.103.226:49118");
 });

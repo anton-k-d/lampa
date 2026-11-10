@@ -162,8 +162,7 @@ The Russian admin panel at `/admin/` edits global or device revisions. Blank
 fields in device scope remove the corresponding override. Jackett and TorrServer have explicit enabled, disabled, and inherit/default choices; entering a URL does not enable either service. Save validates the
 full document and preserves other schema fields. A conflict leaves the form
 intact; load the current version before applying changes again. History can
-restore a previous revision. The separate LAN HTTP origin button changes the
-runtime allowlist independently of configuration saves.
+restore a previous revision. Validate and Save request one confirmation for new HTTP origins, warning that HTTP is unencrypted, and add approved origins to the runtime allowlist. The panel also permits manual origin registration.
 
 Secret inputs are write-only: an empty input retains the current reference;
 the remove checkbox removes it from the next revision without deleting the
