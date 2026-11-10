@@ -166,3 +166,6 @@ Real API costs/quality, provider connectivity, physical Pi ARM64 and TV remote/p
 Final coordinator acceptance: 25/25 full browser tests passed on the built client, including native cards/controls, refresh, expired/running jobs and Back; helper tests 10/10; WEB build/checker and Docker image build passed. Docker old v2 data+secret backup → v3 upgrade → restart preserved settings/credentials; old image also started successfully from the v2 backup.
 
 - [ ] External acceptance after the owner enters a key: real OpenAI result quality/usage and physical LG TV/Pi playback. These were not claimed as tested by fixtures.
+
+
+Final seed acceptance: watched/started output exclusions do not prevent liked titles from being taste seeds. Likes outrank bookmarks/planned; history/completed-only records supply weak fallback seeds, without turning them into likes. Abandoned items are not automatic seeds, but an explicit film action remains allowed. Added five failing-first regressions; final full server suite is 132/132. Final Docker image rebuilt and its completed-history seed behavior checked with an injected catalog. Browser 25/25 and helper 10/10 results remain applicable; frontend was unchanged by this backend-only correction.

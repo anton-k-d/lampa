@@ -51,3 +51,41 @@ test('full seed result lists leave space for discover results',async()=>{
  const provider={getList:async({category,id,type})=>Array.from({length:20},(_,i)=>({key:`tmdb:${type}:${category==='discover'?9000+i:100+id*100+(category==='similar'?50:0)+i}`,id:i,title:category})),hydrateCards:async()=>[]};
  const result=await buildCandidates({profile,provider});assert.equal(result.candidates.length,120);assert(result.candidates.some(c=>c.title==='discover'));assert(result.candidates.some(c=>c.key.startsWith('tmdb:tv:')));
 });
+
+test('a completed liked title supplies recommendations but is excluded from results',async()=>{
+ const profile={records:[{key:'tmdb:movie:1',signals:['completed','liked'],rank:0}]};
+ const provider={hydrateCards:async keys=>keys.map(key=>({key,title:'Watched favorite'})),getList:async({seed})=>seed?[{key:seed},{key:'tmdb:movie:2',title:'Related'}]:[]};
+ const result=await buildCandidates({profile,provider});
+ assert.deepEqual(result.seeds.map(s=>[s.key,s.signals]),[['tmdb:movie:1',['completed','liked']]]);
+ assert.deepEqual(result.candidates.map(c=>[c.key,c.relations]),[['tmdb:movie:2',['tmdb:movie:1']]]);
+});
+
+test('history supplies hydrated fallback seeds and related candidates without implying a like',async()=>{
+ const profile={records:[{key:'tmdb:movie:1',signals:['history'],rank:1},{key:'tmdb:movie:2',signals:['abandoned','history'],rank:0}]};
+ const provider={hydrateCards:async keys=>keys.map(key=>({key,title:'History title'})),getList:async({seed})=>seed?[{key:seed},{key:'tmdb:movie:3',title:'Related'}]:[]};
+ const result=await buildCandidates({profile,provider});
+ assert.deepEqual(result.seeds.map(s=>[s.key,s.signals]),[['tmdb:movie:1',['history']]]);
+ assert.deepEqual(result.candidates.map(c=>[c.key,c.relations]),[['tmdb:movie:3',['tmdb:movie:1']]]);
+});
+
+test('strong signals take precedence over recent history and seed selection uses rank',async()=>{
+ const profile={records:[...Array.from({length:9},(_,i)=>({key:`tmdb:movie:${i+1}`,signals:['history'],rank:8-i})),{key:'tmdb:movie:20',signals:['planned'],rank:20}]};
+ const provider={hydrateCards:async keys=>keys.map(key=>({key})),getList:async()=>[]};
+ const result=await buildCandidates({profile,provider});
+ assert.deepEqual(result.seeds.map(s=>s.key),['tmdb:movie:20','tmdb:movie:9','tmdb:movie:8','tmdb:movie:7','tmdb:movie:6','tmdb:movie:5','tmdb:movie:4','tmdb:movie:3']);
+});
+
+test('liked titles take precedence over newer planned titles',async()=>{
+ const profile={records:[...Array.from({length:8},(_,i)=>({key:`tmdb:movie:${i+1}`,signals:['planned'],rank:i})),{key:'tmdb:movie:20',signals:['liked'],rank:20}]};
+ const provider={hydrateCards:async keys=>keys.map(key=>({key})),getList:async()=>[]};
+ const result=await buildCandidates({profile,provider});
+ assert.equal(result.seeds[0].key,'tmdb:movie:20');
+ assert.equal(result.seeds.length,8);
+});
+
+test('abandoned likes are seeds only when explicitly requested',async()=>{
+ const profile={records:[{key:'tmdb:movie:1',signals:['abandoned','liked'],rank:0}]};
+ const provider={hydrateCards:async keys=>keys.map(key=>({key})),getList:async()=>[]};
+ assert.deepEqual((await buildCandidates({profile,provider})).seeds,[]);
+ assert.deepEqual((await buildCandidates({profile,provider,seed:'tmdb:movie:1'})).seeds.map(s=>s.key),['tmdb:movie:1']);
+});

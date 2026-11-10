@@ -6,7 +6,12 @@ export async function buildCandidates({profile,seed,locale='en-US',provider,sign
   try {
     const records=Array.isArray(profile?.records)?profile.records:[];const explicit=typeof seed==='string'?seed:seed?.key;
     const excluded=new Set(records.filter(r=>r.signals?.some(s=>['started','completed','abandoned'].includes(s))).map(r=>r.key));
-    const selected=[];for(const k of [explicit,...records.filter(r=>r.signals?.some(s=>['liked','bookmarked','planned'].includes(s))).map(r=>r.key)])if(typeof k==='string'&&KEY.test(k)&&!selected.includes(k)&&(!excluded.has(k)||k===explicit)){selected.push(k);if(selected.length===8)break;}
+    const strong=r=>r.signals?.some(s=>['liked','bookmarked','planned'].includes(s));
+    const recent=(a,b)=>(Number.isSafeInteger(a.rank)?a.rank:Number.MAX_SAFE_INTEGER)-(Number.isSafeInteger(b.rank)?b.rank:Number.MAX_SAFE_INTEGER)||(b.lastActivityAt||'').localeCompare(a.lastActivityAt||'')||String(a.key).localeCompare(String(b.key));
+    const priority=r=>r.signals.includes('liked')?0:r.signals.includes('bookmarked')?1:2;
+    const positives=records.filter(r=>strong(r)&&!r.signals.includes('abandoned')).sort((a,b)=>priority(a)-priority(b)||recent(a,b));
+    const history=records.filter(r=>!strong(r)&&!r.signals?.includes('abandoned')&&r.signals?.some(s=>['history','completed'].includes(s))).sort(recent);
+    const selected=[];for(const k of [explicit,...positives.map(r=>r.key),...history.map(r=>r.key)])if(typeof k==='string'&&KEY.test(k)&&!selected.includes(k)){selected.push(k);if(selected.length===8)break;}
     selected.forEach(k=>excluded.add(k));let partial=false;
     const tasks=[];for(const k of selected){const m=KEY.exec(k);for(const category of ['recommendations','similar'])tasks.push({type:m[1],id:Number(m[2]),category,seed:k});}
     for(const type of ['movie','tv'])tasks.push({type,category:'discover'});
