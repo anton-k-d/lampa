@@ -29,7 +29,7 @@ async function setup(page) {
 test('copies exact original and comparison response without paid requests on copy', async ({page}) => {
   await page.addInitScript(() => { window.copied = []; Object.defineProperty(navigator, 'clipboard', {value:{writeText: async text => window.copied.push(text)}}); });
   const posts = await setup(page);
-  await expect(page.getByRole('button',{name:'Копировать ответ',exact:true})).toBeDisabled();
+  await expect(page.locator('#aiTraceCopy')).toBeDisabled();
   await page.getByRole('button',{name:'Открыть one'}).click();
   await page.getByRole('button',{name:'Копировать ответ',exact:true}).click();
   await expect(page.locator('#aiTraceCopyStatus')).toContainText('скопирован');
