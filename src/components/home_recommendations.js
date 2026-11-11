@@ -27,6 +27,8 @@ function component(object){
                     }
                     else if(data.stale || data.state==='empty' || data.state==='needs_history') data=await requestSimilar(seed,state=>{if(alive()) this.aiStatus.text(state==='queued'?'Подборка в очереди…':'Создание подборки…')},alive)
                     if(!alive()) return
+                    if(data.state==='not_configured') return this.aiMessage('Администратор должен настроить ключ OpenAI')
+                    if(data.state==='needs_history') return this.aiMessage('Сначала синхронизируйте историю')
                     if(!data.items || !data.items.length) return this.aiMessage('Подборка пока пуста',show)
                     this.aiStatus.remove()
                     this.aiReasons=data.items.map(item=>item.reason || '')

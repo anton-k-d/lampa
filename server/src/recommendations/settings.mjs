@@ -1,6 +1,6 @@
 import { ConfigError } from '../config/errors.mjs';
 
-export const defaultPrompts = Object.freeze({home:'Подбирай рекомендации для главной страницы с учётом вкусов и истории просмотра, сочетая знакомые интересы и новые открытия.',similar:'Подбирай фильмы и сериалы, похожие на выбранное произведение, с учётом вкусов зрителя.'});
+export const defaultPrompts = Object.freeze({home:'Ищи в интернете рекомендации для главной страницы, опираясь на явно понравившиеся произведения и предлагая новые открытия.',similar:'Ищи в интернете фильмы и сериалы, похожие на выбранное произведение, учитывая явно понравившиеся произведения зрителя.'});
 export const defaultAISettings = Object.freeze({schemaVersion:1,enabled:false,model:'gpt-4.1-mini',locale:'ru-RU',timezone:'Europe/Moscow',schedule:'04:00',limits:{profileAttempts:8,serverAttempts:32,manualHome:2,similar:5}});
 const fail = (code,message) => { throw new ConfigError(code,message); };
 function validate(d) {

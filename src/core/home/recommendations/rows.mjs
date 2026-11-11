@@ -14,6 +14,7 @@ export function registerRecommendationRow(ContentRows){
                         button.on('hover:enter',()=>{
                             button.text('Обновление…');
                             refreshHome().then(data=>{
+                                if(data.state==='no_likes' || data.state==='needs_history' || data.state==='not_configured'){button.text('Обновить');return}
                                 items=(data.items||[]).slice(0,12);
                                 this.items.forEach(item=>item.destroy());
                                 this.items=[]; this.active=0;

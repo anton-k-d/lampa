@@ -1,3 +1,4 @@
+import {likedRecords,researchProvider,researchResponse} from './research-fixture.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
@@ -33,8 +34,8 @@ test('ranking sends custom instructions as developer content while preserving sy
  assert.equal(payload.input.find(m=>m.role==='developer')?.content,'Prefer obscure films');assert.match(payload.input.find(m=>m.role==='system').content,/untrusted/);assert.match(payload.input.find(m=>m.role==='system').content,/candidate/);assert.equal(payload.text.format.strict,true);
 });
 test('jobs use kind-specific prompts, settings changes invalidate similar cache, and admin test ignores prompts',async()=>{
- const db=openConfigDatabase(':memory:');try{const repo=createRecommendationRepository(db),settings=createAISettings(db,createRuntimeStore(db)),jobs=createJobs(db);repo.replaceSnapshot({deviceId:'tv',seq:1,digest:digestRecords([]),records:[]});settings.save({...settings.read().document,enabled:true,prompts},0,{key:'fixture'});
- const seen=[];const service=createRecommendationService({db,repository:repo,jobs,settings,provider:()=>({getList:async()=>[{key:'tmdb:movie:2',id:2,type:'movie',title:'Fixture',genre_ids:[],adult:false}],hydrateCards:async()=>[]}),transportFactory:()=>({rank:async request=>{seen.push(request.prompt);return {output_text:JSON.stringify({items:[{key:request.input.candidates[0].key,reasonCode:'discovery',seedKey:null}]})};}})});
+ const db=openConfigDatabase(':memory:');try{const repo=createRecommendationRepository(db),settings=createAISettings(db,createRuntimeStore(db)),jobs=createJobs(db);repo.replaceSnapshot({deviceId:'tv',seq:1,digest:digestRecords(likedRecords),records:likedRecords});settings.save({...settings.read().document,enabled:true,prompts},0,{key:'fixture'});
+ const seen=[];const service=createRecommendationService({db,repository:repo,jobs,settings,provider:researchProvider,transportFactory:()=>({recommend:async request=>{seen.push(request.prompt);return researchResponse();},rank:async request=>{seen.push(request.prompt);return {output_text:JSON.stringify({items:[{key:'tmdb:movie:1',reasonCode:'discovery',seedKey:null}]})};}})});
  service.requestHome({deviceId:'tv',mutationId:'home'});await service.workOnce();service.requestSimilar({deviceId:'tv',seed:{type:'movie',id:1},mutationId:'similar'});await service.workOnce();assert.deepEqual(seen,[prompts.home,prompts.similar]);assert.equal(service.readSimilar('tv',{type:'movie',id:1}).state,'ready');settings.save({...settings.read().document,prompts:{...prompts,similar:'Changed'}},1);assert.equal(service.readSimilar('tv',{type:'movie',id:1}).state,'empty');await service.testConnection();assert.equal(seen[2],undefined);
  }finally{db.close();}
 });

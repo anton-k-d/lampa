@@ -32,3 +32,20 @@ test('native home row reads fixture cache and uploads snapshot after initializat
  await page.evaluate(()=>{if(!Lampa.Settings.render(true).isConnected) document.body.appendChild(Lampa.Settings.render(true));Lampa.Settings.create('ai_home')});
  await expect(page.locator('.settings__body')).toContainText('Обновить подборку');
 });
+test('home refresh explains missing likes without polling a job',async({page})=>{
+ test.setTimeout(30000);let polls=0,posts=0;
+ await page.route('**/*',route=>route.request().url().startsWith(base+'/')?route.continue():route.fulfill({json:{results:[],page:1,total_pages:1},headers:{'access-control-allow-origin':'*'}}));
+ await page.route('**/v1/devices/*/recommendations/**',route=>{const req=route.request(),path=new URL(req.url()).pathname;
+  if(path.endsWith('/capabilities'))return route.fulfill({json:{enabled:true,state:'ready'}});
+  if(path.endsWith('/signals'))return route.fulfill({json:{acceptedSeq:req.postDataJSON().seq}});
+  if(path.endsWith('/home/refresh')){posts++;return route.fulfill({json:{state:'no_likes'}})}
+  if(path.includes('/jobs/')){polls++;return route.fulfill({json:{state:'failed'}})}
+  return route.fulfill({json:{state:'ready',items:[{card:{id:12,source:'tmdb',media_type:'movie',title:'Fixture movie',release_date:'2020-01-01'}}]}});
+ });
+ await page.addInitScript(()=>{localStorage.setItem('language','ru');localStorage.setItem('source','cub')});
+ await page.goto(base+'/app/');await page.waitForFunction(()=>window.appready===true);
+ const row=page.locator('.items-line').filter({hasText:'Для тебя'}).first();await expect(row).toContainText('Fixture movie');
+ await row.locator('.ai-home-refresh').evaluate(el=>$(el).trigger('hover:enter'));
+ await expect(page.locator('body')).toContainText('Добавьте лайки');
+ expect(posts).toBe(1);expect(polls).toBe(0);
+});
