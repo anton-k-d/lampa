@@ -31,7 +31,7 @@ function component(object){
                     if(data.state==='needs_history') return this.aiMessage('Сначала синхронизируйте историю')
                     if(!data.items || !data.items.length) return this.aiMessage('Подборка пока пуста',show)
                     this.aiStatus.remove()
-                    this.aiReasons=data.items.map(item=>item.reason || '')
+                    this.aiItems=data.items.slice(0,12)
                     this.build({results:data.items.slice(0,12).map(item=>item.card),page:1,total_pages:1})
                 } catch(e){if(alive()) this.aiMessage('Не удалось получить подборку',show)}
             }
@@ -42,8 +42,12 @@ function component(object){
             item.use({onEnter:Router.call.bind(Router,'full',data),onFocus:function(){Background.change(Utils.cardImgBackground(data))}})
         },
         onAppend: function(item){
-            let reason=this.aiReasons && this.aiReasons[this.added-1]
-            if(reason) $(item.render(true)).append($('<div class="ai-recommendation-reason"></div>').text(reason))
+            let recommendation=this.aiItems && this.aiItems[this.added-1]
+            if(!recommendation) return
+            const target=$(item.render(true))
+            if(recommendation.reason) target.append($('<div class="ai-recommendation-reason"></div>').text(recommendation.reason))
+            const status=recommendation.citationStatus==='unverified'?'Источники не подтверждены':recommendation.citationStatus==='partial'?'Часть ссылок не подтверждена':''
+            if(status) target.append($('<div class="ai-recommendation-reason ai-recommendation-source-status"></div>').text(status))
         },
         onDestroy: function(){this.aiAlive=false}
     })

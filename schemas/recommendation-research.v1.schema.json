@@ -45,7 +45,7 @@
           },
           "source_urls": {
             "type": "array",
-            "minItems": 1,
+            "minItems": 0,
             "maxItems": 5,
             "items": {
               "type": "string",

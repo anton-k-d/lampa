@@ -12,7 +12,7 @@ test('same-title cache renders ordinary cards and escaped reason without generat
  await page.route('**/v1/devices/*/recommendations/**',route=>{const req=route.request(), path=new URL(req.url()).pathname;
   if(path.endsWith('/capabilities'))return route.fulfill({json:{enabled:true,state:'ready'}});
   if(path.endsWith('/signals'))return route.fulfill({json:{acceptedSeq:req.postDataJSON().seq,profileRevision:1,skipped:0}});
-  if(path.endsWith('/similar')){if(req.method()==='POST')posts++;return route.fulfill({json:{state:'ready',items:[{card:{id:33,source:'tmdb',media_type:'tv',name:'Fixture show',original_name:'Fixture show',first_air_date:'2020-01-01'},reason:'<img src=x onerror=alert(1)>'}]}})}
+  if(path.endsWith('/similar')){if(req.method()==='POST')posts++;return route.fulfill({json:{state:'ready',items:[{card:{id:33,source:'tmdb',media_type:'tv',name:'Fixture show',original_name:'Fixture show',first_air_date:'2020-01-01'},reason:'<img src=x onerror=alert(1)>',citationStatus:'unverified',sources:[]}]}})}
   return route.fulfill({json:{state:'ready'}});
  });
  await page.addInitScript(()=>{localStorage.setItem('language','ru');localStorage.setItem('source','cub')});
@@ -24,7 +24,7 @@ test('same-title cache renders ordinary cards and escaped reason without generat
  await expect(page.locator('.button--home-ai')).toBeVisible();
  const icon=page.locator('.button--home-ai svg');await expect(icon).toHaveCount(1);const iconBox=await icon.boundingBox();expect(iconBox?.width).toBeGreaterThan(0);expect(iconBox?.height).toBeGreaterThan(0);
  await page.locator('.button--home-ai').evaluate(el=>$(el).trigger('hover:enter'));
- await expect(page.locator('.ai-recommendation-reason')).toHaveText('<img src=x onerror=alert(1)>');expect(await page.locator('.ai-recommendation-reason img').count()).toBe(0);expect(posts).toBe(0);
+ await expect(page.locator('.ai-recommendation-reason:not(.ai-recommendation-source-status)')).toHaveText('<img src=x onerror=alert(1)>');expect(await page.locator('.ai-recommendation-reason img').count()).toBe(0);await expect(page.locator('.ai-recommendation-source-status')).toHaveText('Источники не подтверждены');expect(posts).toBe(0);
 });
 test('leaving while the cache request is pending does not start generation',async({page})=>{
  test.setTimeout(30000);let posts=0, release;

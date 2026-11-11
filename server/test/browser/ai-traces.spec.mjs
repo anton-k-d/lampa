@@ -29,11 +29,12 @@ test('raw trace is safe and comparison runs only on explicit click, with stable 
   await page.addInitScript(() => { Object.defineProperty(crypto, 'randomUUID', {value:undefined}); });
   await setup(page, async (route,u) => {
     if (u.pathname.endsWith('/replay')) { attempts.push({body:route.request().postData(),key:route.request().headers()['idempotency-key']}); if (attempts.length===1) return route.abort(); return route.fulfill({json:{eventId:'comparison'}}); }
-    return route.fulfill({json:detail(u.pathname.split('/').pop(), u.pathname.endsWith('/comparison') ? 'gpt-4.1' : undefined)});
+    const d = detail(u.pathname.split('/').pop(), u.pathname.endsWith('/comparison') ? 'gpt-4.1' : undefined); d.event.citationSummary = {verified:1, partial:2, unverified:3}; return route.fulfill({json:d});
   });
   await page.getByRole('button',{name:'Открыть one'}).click();
   await expect(page.locator('#aiTraceRequest')).toHaveText(raw);
   await expect(page.locator('#aiTraceResponse')).toHaveText(raw);
+  await expect(page.locator('#aiTraceMeta')).toContainText('Источники: подтверждено 1, частично 2, не подтверждено 3');
   await expect(page.locator('#aiTraceRequest img')).toHaveCount(0);
   await page.locator('#aiTraceModel').selectOption('gpt-4.1');
   expect(attempts).toHaveLength(0);
@@ -52,6 +53,7 @@ test('old events without trace cannot replay', async ({page}) => {
   await page.getByRole('button',{name:'Открыть old'}).click();
   await expect(page.locator('#aiTraceStatus')).toContainText('нет сохранённой трассы');
   await expect(page.locator('#aiTraceReplay')).toBeDisabled();
+  await expect(page.locator('#aiTraceMeta')).not.toContainText('Источники:');
 });
 test('switching events ignores stale details and truncated traces cannot replay', async ({page}) => {
   let release; const delayed = new Promise(r => { release = r; });

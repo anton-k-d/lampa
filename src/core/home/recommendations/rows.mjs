@@ -26,7 +26,7 @@ export function registerRecommendationRow(ContentRows){
                         });
                         this.scroll.append(button[0]);
                     },
-                    onAppend(card,element){const match=items.find(item=>item.card===element); if(match && match.reason) $(card.render(true)).append($('<div class="ai-recommendation-reason"></div>').text(match.reason));},
+                    onAppend(card,element){const match=items.find(item=>item.card===element); if(!match) return; const target=$(card.render(true)); if(match.reason) target.append($('<div class="ai-recommendation-reason"></div>').text(match.reason)); const status=match.citationStatus==='unverified'?'Источники не подтверждены':match.citationStatus==='partial'?'Часть ссылок не подтверждена':''; if(status) target.append($('<div class="ai-recommendation-reason ai-recommendation-source-status"></div>').text(status));},
                     onlyMore:()=>refreshHome().catch(()=>{})
                 }}});
             },()=>finish({results:[],title:'Для тебя',page:1,total_pages:1}));
