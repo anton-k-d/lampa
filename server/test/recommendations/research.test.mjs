@@ -7,6 +7,28 @@ const source='https://reviews.example/film';
 const proposal={title:'Result',original_title:'Original Result',year:2021,media_type:'movie',reason:'A good match',source_urls:[source]};
 const output=(change={})=>({id:'resp',object:'response',status:'completed',output:[{type:'web_search_call',status:'completed',action:{type:'search',sources:[{type:'url',url:source}]}},{type:'message',role:'assistant',status:'completed',content:[{type:'output_text',text:JSON.stringify({items:[proposal]})}]}],...change});
 const likes=Array.from({length:3},(_,i)=>({title:`Like ${i}`,original_title:`Original ${i}`,year:2020,media_type:'movie'}));
+const research=async(items,urls,annotations=[])=>{const x=output();x.output[0].action.sources=urls.map(url=>({type:'url',url}));x.output[1].content[0].annotations=annotations.map(url=>({type:'url_citation',url}));x.output_text=JSON.stringify({items});return recommendTitles({likedTitles:likes,transport:{recommend:async()=>x}});};
+const item=(n,...urls)=>({...proposal,title:`Result ${n}`,original_title:`Original ${n}`,source_urls:urls});
+test('keeps four verified recommendations and drops an invented fifth citation',async()=>{
+ const urls=['https://a.example/one','https://b.example/two?gclid=provider','https://c.example/three?id=7','https://d.example/four'];
+ const result=await research([item(1,urls[0]+'?utm_source=chat'),item(2,'https://b.example/two'),item(3,urls[2]+'&UTM_campaign=x'),item(4,urls[3]+'?fbclid=x&msclkid=x&yclid=x&dclid=x'),item(5,'https://en.wikipedia.org/wiki/Fake')],urls);
+ assert.deepEqual(result.proposals.map(p=>p.sources),urls.map(url=>[url]));
+});
+test('annotations normalize tracking parameters and preserve provider URL',async()=>{
+ const result=await research([item(1,'https://reviews.example/film?utm_source=x')],[],['https://reviews.example/film?gclid=provider']);
+ assert.deepEqual(result.proposals[0].sources,['https://reviews.example/film?gclid=provider']);
+});
+test('unverified citations cannot change document identity or salvage an item',async()=>{
+ const original='https://reviews.example/film?id=1&page=2&signature=abc';
+ for(const candidate of ['https://reviews.example/other?id=1&page=2&signature=abc','http://reviews.example/film?id=1&page=2&signature=abc','https://www.reviews.example/film?id=1&page=2&signature=abc','https://reviews.example/film/?id=1&page=2&signature=abc','https://reviews.example/film?id=2&page=2&signature=abc','https://reviews.example/film?id=1&page=3&signature=abc','https://reviews.example/film?id=1&page=2&signature=def','https://reviews.example/film?id=1&page=2&signature=abc#other','https://user@reviews.example/film?id=1&page=2&signature=abc','https://@reviews.example/film?id=1&page=2&signature=abc','javascript:alert(1)','not a url']){
+  const result=await research([item(1,original,candidate),item(2,original)], [original]);assert.deepEqual(result.proposals.map(p=>p.title),['Result 2']);
+  await assert.rejects(research([item(1,candidate)],[original]),{code:'invalid_response'});
+ }
+});
+test('malformed proposal remains a hard failure even beside a valid proposal',async()=>{
+ await assert.rejects(research([item(1,source),{...item(2,'https://fake.example/'),year:'2021'}],[source]),{code:'invalid_response'});
+ await assert.rejects(research([item(1,source),item(2,'https://reviews.example/'+ 'a'.repeat(2049))],[source]),{code:'invalid_response'});
+});
 test('only liked records are hydrated, ordered by recency and compacted',async()=>{
  let keys;const result=await prepareResearchInput({records:[{key:'tmdb:movie:1',signals:['liked'],lastActivityAt:'2020'},{key:'tmdb:tv:2',signals:['history']},{key:'tmdb:movie:3',signals:['liked'],lastActivityAt:'2022'}],provider:{hydrateCards:async k=>(keys=k,k.map(card))}});
  assert.deepEqual(keys,['tmdb:movie:3','tmdb:movie:1']);assert.deepEqual(result.likedTitles[0],{title:'Film tmdb:movie:3',original_title:'Original',year:2020,media_type:'movie'});assert.equal(result.similarTo,null);
@@ -19,6 +41,7 @@ test('no likes fails before hydration, seed permits empty likes, missing metadat
 test('real SDK request uses only web search and verifies citations',async()=>{
  let body;const transport=createOpenAITransport({apiKey:'secret',fetchImpl:async(_url,init)=>{body=JSON.parse(init.body);return new Response(JSON.stringify(output()),{status:200,headers:{'content-type':'application/json','x-request-id':'req_1'}});}});
  const result=await recommendTitles({likedTitles:likes,locale:'en-US',transport});
+ assert.match(body.input[0].content,/new titles.*liked.*similarTo/i);assert.match(body.input[0].content,/copy.*URLs.*(?:search|sources).*annotations/i);assert.match(body.input[0].content,/never invent/i);
  assert.deepEqual(result.proposals,[{title:'Result',original_title:'Original Result',year:2021,media_type:'movie',reason:'A good match',sources:[source]}]);assert.equal(result.providerRequestId,'req_1');assert.deepEqual(body.tools,[{type:'web_search',search_context_size:'low'}]);assert.equal(body.max_tool_calls,3);assert(body.include.includes('web_search_call.action.sources'));assert(Buffer.byteLength(JSON.stringify(body))<10240);assert(!JSON.stringify(body).includes('history'));assert.equal(JSON.parse(body.input.at(-1).content).liked.length,3);
 });
 test('rejects fabricated citations, absent or failed search, and unexpected output fields',async()=>{

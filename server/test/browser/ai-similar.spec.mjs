@@ -22,6 +22,7 @@ test('same-title cache renders ordinary cards and escaped reason without generat
    Lampa.Activity.push({component:'full',id:22,method:'movie',card:{id:22,source:'tmdb',media_type:'movie',title:'Seed',release_date:'2020-01-01'}});
  });
  await expect(page.locator('.button--home-ai')).toBeVisible();
+ const icon=page.locator('.button--home-ai svg');await expect(icon).toHaveCount(1);const iconBox=await icon.boundingBox();expect(iconBox?.width).toBeGreaterThan(0);expect(iconBox?.height).toBeGreaterThan(0);
  await page.locator('.button--home-ai').evaluate(el=>$(el).trigger('hover:enter'));
  await expect(page.locator('.ai-recommendation-reason')).toHaveText('<img src=x onerror=alert(1)>');expect(await page.locator('.ai-recommendation-reason img').count()).toBe(0);expect(posts).toBe(0);
 });

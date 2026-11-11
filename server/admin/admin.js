@@ -524,7 +524,7 @@ async function loadDiagnosticAi(cursor = null) {
 }
 let aiTraceTrigger = null;
 $("aiTraceBack").addEventListener("click", () => { $("aiTracePanel").hidden = true; aiTraceTrigger?.focus(); });
-let aiTraceSelection = 0, aiTraceDetail = null, aiTracePending = null, aiTraceBusy = false;
+let aiTraceSelection = 0, aiTraceDetail = null, aiTracePending = null, aiTraceBusy = false, aiComparisonBody = null, aiCopySequence = 0;
 function traceUuid() {
   if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
   const bytes = new Uint8Array(16);
@@ -540,6 +540,8 @@ function traceMeta(detail) {
 }
 function updateTraceControls() {
   const usable = aiTraceDetail?.trace && !aiTraceDetail.trace.truncated && !aiTraceDetail.trace.redacted;
+  $('aiTraceCopy').disabled = typeof aiTraceDetail?.trace?.responseBody !== 'string';
+  $('aiComparisonCopy').disabled = typeof aiComparisonBody !== 'string';
   $('aiTraceReplay').disabled = aiTraceBusy || !usable || !$('aiTraceModel').value;
   $('aiTraceModel').disabled = aiTraceBusy || !$('aiTraceModel').options.length;
 }
@@ -548,7 +550,8 @@ async function openAiTrace(id) {
   $('aiTracePanel').scrollIntoView({block:'start'});
   $('aiTracePanel').focus({preventScroll:true});
   const selection = ++aiTraceSelection;
-  aiTraceDetail = null; aiTracePending = null; aiTraceBusy = false;
+  aiTraceDetail = null; aiTracePending = null; aiTraceBusy = false; aiComparisonBody = null; ++aiCopySequence;
+  $('aiTraceCopyStatus').textContent = '';
   $('aiTraceStatus').textContent = 'Загрузка события…';
   for (const name of ['aiTraceMeta','aiTraceRequest','aiTraceResponse','aiComparisonMeta','aiComparisonResponse']) $(name).textContent = '';
   $('aiTraceModel').replaceChildren(); updateTraceControls();
@@ -564,6 +567,7 @@ async function openAiTrace(id) {
       $('aiTraceResponse').textContent = detail.trace.responseBody ?? 'Ответ отсутствует.';
       $('aiTraceStatus').textContent = detail.trace.truncated || detail.trace.redacted ? 'Трасса обрезана или очищена; сравнение недоступно.' : 'Трасса загружена.';
     } else $('aiTraceStatus').textContent = 'Для этого события нет сохранённой трассы.';
+    updateTraceControls();
     const models = await modelsPromise;
     if (selection !== aiTraceSelection) return;
     if (Array.isArray(models?.models)) for (const model of models.models) {
@@ -576,17 +580,54 @@ async function openAiTrace(id) {
     $('aiTraceStatus').textContent = 'Не удалось открыть событие.'; updateTraceControls();
   }
 }
+async function copyTraceResponse(comparison) {
+  const body = comparison ? aiComparisonBody : aiTraceDetail?.trace?.responseBody;
+  if (typeof body !== 'string') return;
+  const selection = aiTraceSelection, sequence = ++aiCopySequence;
+  const current = () => selection === aiTraceSelection && sequence === aiCopySequence;
+  $('aiTraceCopyStatus').textContent = '';
+  let copied = false;
+  if (window.isSecureContext && navigator.clipboard?.writeText) {
+    try { await navigator.clipboard.writeText(body); copied = true; } catch { /* Try the HTTP-compatible fallback. */ }
+  }
+  if (!current()) return;
+  if (!copied) {
+    const active = document.activeElement, selectionObject = window.getSelection();
+    const ranges = selectionObject ? Array.from({length: selectionObject.rangeCount}, (_, i) => selectionObject.getRangeAt(i).cloneRange()) : [];
+    const field = document.createElement('textarea');
+    field.value = body; field.dataset.copyTemporary = ''; field.style.position = 'fixed'; field.style.left = '-9999px';
+    let wroteClipboard = false;
+    const onCopy = event => {
+      if (!event.clipboardData) return;
+      try { event.clipboardData.setData('text/plain', body); event.preventDefault(); wroteClipboard = true; } catch { /* Report failure if clipboard data cannot be set. */ }
+    };
+    document.body.appendChild(field);
+    document.addEventListener('copy', onCopy);
+    try { field.focus(); field.select(); copied = document.execCommand('copy') && wroteClipboard; } catch { copied = false; }
+    finally {
+      document.removeEventListener('copy', onCopy);
+      field.remove();
+      if (active && typeof active.focus === 'function') active.focus();
+      if (selectionObject) { selectionObject.removeAllRanges(); for (const range of ranges) selectionObject.addRange(range); }
+    }
+  }
+  if (current()) $('aiTraceCopyStatus').textContent = copied ? 'Ответ скопирован.' : 'Не удалось скопировать ответ.';
+}
+$('aiTraceCopy').addEventListener('click', () => copyTraceResponse(false));
+$('aiComparisonCopy').addEventListener('click', () => copyTraceResponse(true));
 $('aiTraceModel').addEventListener('change', () => { aiTracePending = null; updateTraceControls(); });
 $('aiTraceReplay').addEventListener('click', async () => {
   if (aiTraceBusy || $('aiTraceReplay').disabled) return;
   const selection = aiTraceSelection, source = aiTraceDetail.event.id, model = $('aiTraceModel').value;
   aiTracePending ||= {source, model, key: traceUuid()};
-  const mutation = aiTracePending; aiTraceBusy = true; updateTraceControls();
+  const mutation = aiTracePending; aiTraceBusy = true; aiComparisonBody = null; ++aiCopySequence;
+  $('aiComparisonMeta').textContent = ''; $('aiComparisonResponse').textContent = ''; $('aiTraceCopyStatus').textContent = ''; updateTraceControls();
   $('aiTraceStatus').textContent = 'Сравнение выполняется…';
   try {
     const result = await api(`${diagnosticsBase}/ai/${encodeURIComponent(source)}/replay`, json('POST', {model}, {'Idempotency-Key': mutation.key}));
     const detail = await api(`${diagnosticsBase}/ai/${encodeURIComponent(result.eventId)}`);
     if (selection !== aiTraceSelection) return;
+    aiComparisonBody = detail.trace?.responseBody ?? null;
     $('aiComparisonMeta').textContent = traceMeta(detail);
     $('aiComparisonResponse').textContent = detail.trace?.responseBody ?? 'Ответ отсутствует.';
     const status = detail.event?.status;
