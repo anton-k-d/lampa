@@ -138,3 +138,57 @@ test('event actions stay compact and details open in view with a return action',
   await expect(button).toBeFocused();
   expect(await page.locator('main').evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(1300);
 });
+
+test('snapshot cards, comparison history and explicit reconstruction remain read-only until requested', async ({page}) => {
+  const posts=[];
+  const snapshot={schemaVersion:1,mode:'generation',state:'ready',capturedAt:'2026-11-11T00:00:00Z',items:[{status:'included',proposal:{title:'<script>Title</script>',year:2020,media_type:'movie'},card:{title:'<script>Title</script>',vote_average:7},posterUrl:'/broken-poster.jpg',reason:'<img> reason',sources:[],citationStatus:'unverified'},{status:'excluded',proposal:{title:'Excluded'},posterUrl:'/good-poster.png',reason:'Already seen',citationStatus:'verified',exclusionCode:'WATCHED'}]};
+  await setup(page, (route,u) => {
+    if (route.request().method()==='POST') { posts.push(u.pathname); return route.fulfill({json:{eventId:'one',result:{...snapshot,mode:'reconstructed'}}}); }
+    if (u.pathname.endsWith('/comparisons')) return route.fulfill({json:{items:[event('child','gpt-4.1')],nextCursor:null}});
+    const d=detail(u.pathname.split('/').pop()); if (d.event.id==='one') d.result=snapshot; return route.fulfill({json:d});
+  });
+  await page.route('**/broken-poster.jpg', route => route.abort());
+  await page.route('**/good-poster.png', route => route.fulfill({contentType:'image/png',body:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/aS8AAAAASUVORK5CYII=', 'base64')}));
+  await page.getByRole('button',{name:'Открыть one'}).click();
+  await expect(page.locator('#aiOriginalCards')).toContainText('<script>Title</script>');
+  await expect(page.locator('#aiOriginalCards .ai-result-poster').first().locator('img')).toHaveCount(0);
+  await expect(page.locator('#aiOriginalCards .ai-result-poster').first()).toHaveText('Нет постера');
+  await expect(page.locator('#aiOriginalCards .ai-result-poster').nth(1).locator('img')).toBeVisible();
+  await expect(page.locator('#aiOriginalCards .ai-result-poster').nth(1).locator('span')).toBeHidden();
+  await expect(page.locator('#aiOriginalCards')).toContainText('<img> reason');
+  await expect(page.locator('#aiOriginalCards script, #aiOriginalCards img[src="x"]')).toHaveCount(0);
+  await page.setViewportSize({width:1440,height:900});
+  await page.locator('#aiTracePanel').screenshot({path:'/tmp/results-admin-desktop.png'});
+  await page.setViewportSize({width:390,height:844});
+  await page.locator('#aiTracePanel').screenshot({path:'/tmp/results-admin-mobile.png'});
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBeTruthy();
+  await page.locator('#aiResultFilter').selectOption('excluded');
+  await expect(page.locator('#aiOriginalCards')).toContainText('Already seen');
+  await expect(page.locator('#aiOriginalCards')).not.toContainText('<img> reason');
+  await page.locator('#aiHistorySelect').selectOption('child');
+  await expect(page.locator('#aiComparisonMeta')).toContainText('child');
+  expect(posts).toEqual([]);
+  await page.locator('#aiComparisonPreview').click();
+  await expect.poll(()=>posts.length).toBe(1);
+  expect(posts[0]).toContain('/child/preview');
+});
+
+test('finishing replay preserves a selected older comparison and refreshes history', async ({page}) => {
+  let release, posts=0, finished=false; const gate=new Promise(r => { release=r; });
+  await setup(page, async (route,u) => {
+    if (u.pathname.endsWith('/comparisons')) return route.fulfill({json:{items:finished ? [event('new'),event('previous')] : [event('previous')],nextCursor:null}});
+    if (u.pathname.endsWith('/replay')) { posts++; await gate; finished=true; return route.fulfill({json:{eventId:'new'}}); }
+    return route.fulfill({json:detail(u.pathname.split('/').pop())});
+  });
+  await page.getByRole('button',{name:'Открыть one'}).click();
+  await expect(page.locator('#aiHistorySelect option[value="previous"]')).toHaveCount(1);
+  await page.locator('#aiTraceReplay').click();
+  await page.locator('#aiHistorySelect').selectOption('previous');
+  await expect(page.locator('#aiComparisonMeta')).toContainText('previous');
+  release();
+  await expect(page.locator('#aiTraceStatus')).toContainText('Сравнение завершено');
+  await expect(page.locator('#aiHistorySelect option[value="new"]')).toHaveCount(1);
+  await expect(page.locator('#aiHistorySelect')).toHaveValue('previous');
+  await expect(page.locator('#aiComparisonMeta')).toContainText('previous');
+  expect(posts).toBe(1);
+});

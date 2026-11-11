@@ -74,5 +74,6 @@ export function createMetadataCatalog({baseUrl,fetchImpl=fetch,now=Date.now,cach
       return {items,unresolved};
     } finally {clearTimeout(timer);signal?.removeEventListener('abort',externalAbort);}
   }
-  return {getList,hydrateCards,resolveTitles};
+  function imageUrl(path){if(typeof path!=='string'||!/^\/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp)$/i.test(path))return null;try{const u=new URL(base);if(!['http:','https:'].includes(u.protocol)||u.username||u.password)return null;return base+'/image/t/p/w342'+path;}catch{return null;}}
+  return {getList,hydrateCards,resolveTitles,imageUrl};
 }

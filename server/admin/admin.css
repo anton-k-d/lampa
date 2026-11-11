@@ -324,6 +324,106 @@ details p {
 #aiForm>button {
   margin:4px 8px 4px 0
 }
+.ai-result-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(min(100%,180px),1fr));
+  gap:16px;
+  min-width:0
+}
+.ai-result-card {
+  min-width:0;
+  overflow:hidden;
+  border:1px solid var(--line);
+  border-radius:12px;
+  background:#0e1520
+}
+.ai-result-poster {
+  display:grid;
+  place-items:center;
+  aspect-ratio:2/3;
+  overflow:hidden;
+  background:#1a2738;
+  color:var(--muted);
+  text-align:center
+}
+.ai-result-poster img {
+  display:block;
+  width:100%;
+  height:100%;
+  object-fit:contain
+}
+.ai-result-poster .placeholder {
+  padding:16px;
+  overflow-wrap:anywhere
+}
+.ai-result-body {
+  min-width:0;
+  padding:14px
+}
+.ai-result-body h4 {
+  margin:0 0 6px;
+  overflow-wrap:anywhere
+}
+.ai-result-body p {
+  overflow-wrap:anywhere
+}
+.ai-result-reason {
+  margin:12px 0;
+  padding:10px 12px;
+  border-left:3px solid var(--accent);
+  border-radius:0 6px 6px 0;
+  background:#17231a;
+  color:#dce8d1;
+  overflow-wrap:anywhere
+}
+.ai-result-status {
+  display:inline-flex;
+  align-items:center;
+  max-width:100%;
+  margin:4px 6px 4px 0;
+  padding:3px 9px;
+  border:1px solid #3a485d;
+  border-radius:999px;
+  color:#c7d2e4;
+  font-size:11px;
+  font-weight:600;
+  overflow-wrap:anywhere
+}
+.ai-history-select {
+  max-width:100%;
+  min-width:220px
+}
+.ai-view-tabs {
+  display:flex;
+  gap:8px;
+  margin:16px 0
+}
+.ai-view-tab {
+  border-color:var(--line);
+  background:#131a25
+}
+.ai-view-tab.is-active {
+  border-color:var(--accent);
+  background:var(--accent);
+  color:#19240f
+}
+.ai-result-empty {
+  padding:24px;
+  border:1px dashed #3a485d;
+  border-radius:10px;
+  color:var(--muted);
+  text-align:center;
+  overflow-wrap:anywhere
+}
+.ai-result-details {
+  min-width:0;
+  margin:12px 0;
+  overflow-wrap:anywhere
+}
+.ai-result-details pre {
+  max-width:100%;
+  min-width:0
+}
 [hidden] {
   display:none!important
 }
@@ -350,5 +450,13 @@ nav a {
 .comparison-toolbar label {
   width:100%
 }
+.ai-result-grid {
+  grid-template-columns:minmax(0,1fr)
+}
+.ai-history-select {
+  width:100%
+}
 
 }
+
+.ai-result-grid > .ai-result-summary, .ai-result-grid > .ai-result-empty { grid-column: 1 / -1; }
