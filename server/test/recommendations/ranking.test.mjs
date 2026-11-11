@@ -22,7 +22,7 @@ test('refusals, incomplete responses and malformed JSON fail closed',async()=>{
 });
 test('provider errors are classified without leaking sensitive errors',async()=>{
  for(const [status,code] of [[401,'provider_auth'],[403,'provider_auth'],[429,'provider_rate_limit'],[503,'provider_unavailable']]) await assert.rejects(rankCandidates({candidates,seeds,transport:{rank:async()=>{throw Object.assign(new Error('secret prompt and key'),{status});}}}),e=>e.code===code&&!e.message.includes('secret'));
- await assert.rejects(rankCandidates({candidates,seeds,model:'unknown',transport:{}}),{code:'unsupported_model'});
+ let seen;await rankCandidates({candidates,seeds,model:'gpt-5',transport:{rank:async request=>{seen=request.model;return {output_text:JSON.stringify({items:[{key:candidates[0].key,reasonCode:'discovery',seedKey:null}]})};}}});assert.equal(seen,'gpt-5');
 });
 
 test('liked reason requires an actually liked seed',async()=>{

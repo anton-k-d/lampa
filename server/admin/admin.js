@@ -457,8 +457,19 @@ loadOrigins();
 
 let aiRevision = 0;
 let aiPromptsAvailable = false, aiDefaultPrompts = {};
+function fillModelList(models) {
+  const list = $('aiModelList');
+  list.replaceChildren();
+  if (!Array.isArray(models)) return;
+  for (const model of models) {
+    const option = document.createElement('option');
+    option.value = model;
+    list.appendChild(option);
+  }
+}
 async function loadAI() {
-  try { const result = await api('/v1/admin/ai/config'); aiRevision=result.revision;
+  try { const [result, models] = await Promise.all([api('/v1/admin/ai/config'), api('/v1/admin/ai/models').catch(() => null)]); aiRevision=result.revision;
+    fillModelList(models?.models);
     const d=result.document; $('aiEnabled').checked=d.enabled; $('aiModel').value=d.model;
     $('aiLocale').value=d.locale; $('aiSchedule').value=d.schedule;
     $('aiProfileLimit').value=d.limits.profileAttempts; $('aiServerLimit').value=d.limits.serverAttempts;
@@ -476,7 +487,7 @@ async function loadAI() {
 }
 $('aiForm').addEventListener('submit',async event=>{
   event.preventDefault();
-  const document={schemaVersion:1,enabled:$('aiEnabled').checked,model:$('aiModel').value,locale:$('aiLocale').value,timezone:'Europe/Moscow',schedule:$('aiSchedule').value,limits:{profileAttempts:Number($('aiProfileLimit').value),serverAttempts:Number($('aiServerLimit').value),manualHome:Number($('aiHomeLimit').value),similar:Number($('aiSimilarLimit').value)}};
+  const document={schemaVersion:1,enabled:$('aiEnabled').checked,model:$('aiModel').value.trim(),locale:$('aiLocale').value,timezone:'Europe/Moscow',schedule:$('aiSchedule').value,limits:{profileAttempts:Number($('aiProfileLimit').value),serverAttempts:Number($('aiServerLimit').value),manualHome:Number($('aiHomeLimit').value),similar:Number($('aiSimilarLimit').value)}};
   if (aiPromptsAvailable) {
     document.prompts = {home:$('aiHomePrompt').value, similar:$('aiSimilarPrompt').value};
     if (!document.prompts.home.trim() || !document.prompts.similar.trim()) { $('aiStatus').textContent='Промпты не могут быть пустыми.'; return; }

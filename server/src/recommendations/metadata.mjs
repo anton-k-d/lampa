@@ -4,6 +4,17 @@ export function normalizeCard(raw,type) {
   const str=v=>typeof v==='string'?v.slice(0,2000):'';
   return {key:`tmdb:${type}:${raw.id}`,id:raw.id,type,media_type:type,source:'tmdb',...(type==='tv'?{name:str(raw.name||raw.title),original_name:str(raw.original_name||raw.original_title),first_air_date:str(raw.first_air_date||raw.release_date)}:{}),title:str(raw.title||raw.name),original_title:str(raw.original_title||raw.original_name),overview:str(raw.overview),poster_path:typeof raw.poster_path==='string'?raw.poster_path:null,backdrop_path:typeof raw.backdrop_path==='string'?raw.backdrop_path:null,release_date:str(raw.release_date||raw.first_air_date),genre_ids:Array.isArray(raw.genre_ids)?raw.genre_ids.filter(Number.isSafeInteger).slice(0,30):[],vote_average:Number.isFinite(raw.vote_average)?raw.vote_average:0,adult:raw.adult===true};
 }
+const clip=value=>typeof value==='string'?value.trim().slice(0,80):'';
+const named=(list,max)=>(Array.isArray(list)?list:[]).map(item=>clip(typeof item==='string'?item:item?.name)).filter(Boolean).slice(0,max);
+export function researchContext(raw){
+ const extra={};
+ const genres=named(raw?.genres,8);if(genres.length)extra.genres=genres;
+ const countries=named(raw?.production_countries,6);if(countries.length)extra.countries=countries;
+ const tagline=typeof raw?.tagline==='string'?raw.tagline.trim().slice(0,200):'';if(tagline)extra.tagline=tagline;
+ const director=clip(raw?.credits?.crew?.find(person=>person?.job==='Director')?.name)||clip(raw?.created_by?.[0]?.name);if(director)extra.director=director;
+ const cast=named(raw?.credits?.cast,5);if(cast.length)extra.cast=cast;
+ return extra;
+}
 export function createMetadataCatalog({baseUrl,fetchImpl=fetch,now=Date.now,cacheLimit=500}) {
   const base=baseUrl.replace(/\/tmdb-proxy\.js\/?$/,'').replace(/\/+$/,'');
   const cache=new Map(); let active=0; const queue=[];
@@ -33,7 +44,7 @@ export function createMetadataCatalog({baseUrl,fetchImpl=fetch,now=Date.now,cach
     const cacheKey=JSON.stringify([path,locale,page]);const hit=cache.get(cacheKey);if(hit&&hit.until>now())return hit.value;
     const data=await get(path,{language:locale,page},signal);const cards=(Array.isArray(data.results)?data.results:[]).map(x=>normalizeCard(x,type)).filter(Boolean);save(cacheKey,cards);return cards;
   }
-  async function hydrateCards(keys,{locale='en-US',signal}={}) {return (await Promise.all(keys.map(async key=>{const m=KEY.exec(key);if(!m)return null;const cacheKey=JSON.stringify([key,locale]);const hit=cache.get(cacheKey);if(hit&&hit.until>now())return hit.value;const raw=await get(`/3/${m[1]}/${m[2]}`,{language:locale},signal);const card=normalizeCard({...raw,genre_ids:raw.genres?.map(x=>x.id)},m[1]);if(card)save(cacheKey,card);return card;}))).filter(Boolean);}
+  async function hydrateCards(keys,{locale='en-US',signal}={}) {return (await Promise.all(keys.map(async key=>{const m=KEY.exec(key);if(!m)return null;const cacheKey=JSON.stringify([key,locale,'credits']);const hit=cache.get(cacheKey);if(hit&&hit.until>now())return hit.value;const raw=await get(`/3/${m[1]}/${m[2]}`,{language:locale,append_to_response:'credits'},signal);const card=normalizeCard({...raw,genre_ids:raw.genres?.map(x=>x.id)},m[1]);if(card){Object.assign(card,researchContext(raw));save(cacheKey,card);}return card;}))).filter(Boolean);}
   async function resolveTitles(proposals,{locale='ru-RU',signal}={}) {
     if(!Array.isArray(proposals)||proposals.length>12)throw Error('invalid proposals');
     if(signal?.aborted)throw signal.reason;

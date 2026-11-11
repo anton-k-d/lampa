@@ -62,6 +62,16 @@ test('старый ответ без промптов не отправляет 
   await page.getByRole('button', { name: 'Сохранить настройки ИИ' }).click();
   expect((await request).postDataJSON().document).not.toHaveProperty('prompts');
 });
+test('модель можно выбрать из списка или вписать вручную', async ({ page }) => {
+  await page.goto(base + '/admin/');
+  const model = page.locator('#aiModel');
+  await expect(model).toBeEditable();
+  await expect(page.locator('#aiModelList option')).not.toHaveCount(0);
+  await model.fill('gpt-5');
+  await page.getByRole('button', { name: 'Сохранить настройки ИИ' }).click();
+  await expect(page.locator('#aiStatus')).toContainText('сохранены');
+  expect((await (await page.request.get(base + '/v1/admin/ai/config')).json()).document.model).toBe('gpt-5');
+});
 test('справка описывает поиск и сигналы для главной', async ({ page }) => {
   await page.goto(base + '/admin/');
   const form = page.locator('#aiForm');

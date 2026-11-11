@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {prepareResearchInput,recommendTitles} from '../../src/recommendations/research.mjs';
 import {createOpenAITransport} from '../../src/recommendations/openai.mjs';
+import {failureFor} from '../../src/recommendations/failures.mjs';
 const card=(key)=>({key,title:'Film '+key,original_title:'Original',release_date:'2020-01-01',overview:'private',poster_path:'private'});
 const source='https://reviews.example/film';
 const proposal={title:'Result',original_title:'Original Result',year:2021,media_type:'movie',reason:'A good match',source_urls:[source]};
@@ -42,7 +43,7 @@ test('real SDK request uses only web search and verifies citations',async()=>{
  let body;const transport=createOpenAITransport({apiKey:'secret',fetchImpl:async(_url,init)=>{body=JSON.parse(init.body);return new Response(JSON.stringify(output()),{status:200,headers:{'content-type':'application/json','x-request-id':'req_1'}});}});
  const result=await recommendTitles({likedTitles:likes,locale:'en-US',transport});
  assert.match(body.input[0].content,/new titles.*liked.*similarTo/i);assert.match(body.input[0].content,/copy.*URLs.*(?:search|sources).*annotations/i);assert.match(body.input[0].content,/never invent/i);
- assert.deepEqual(result.proposals,[{title:'Result',original_title:'Original Result',year:2021,media_type:'movie',reason:'A good match',sources:[source],citationStatus:'verified'}]);assert.equal(result.providerRequestId,'req_1');assert.deepEqual(body.tools,[{type:'web_search',search_context_size:'low'}]);assert.equal(body.max_tool_calls,3);assert(body.include.includes('web_search_call.action.sources'));assert(Buffer.byteLength(JSON.stringify(body))<10240);assert(!JSON.stringify(body).includes('history'));assert.equal(JSON.parse(body.input.at(-1).content).liked.length,3);
+ assert.deepEqual(result.proposals,[{title:'Result',original_title:'Original Result',year:2021,media_type:'movie',reason:'A good match',sources:[source],citationStatus:'verified'}]);assert.equal(result.providerRequestId,'req_1');assert.deepEqual(body.tools,[{type:'web_search',search_context_size:'medium'}]);assert.equal(body.max_tool_calls,6);assert(body.include.includes('web_search_call.action.sources'));assert(Buffer.byteLength(JSON.stringify(body))<10240);assert(!JSON.stringify(body).includes('history'));assert.match(body.input.at(-1).content,/Liked titles/);assert.equal(body.input.at(-1).content.match(/^- /gm).length,3);
 });
 test('rejects absent or failed search and unexpected output fields',async()=>{
  const base=output();for(const modify of [o=>{o.output.splice(0,1);},o=>{o.output[0].status='failed';},o=>{const p=JSON.parse(o.output[1].content[0].text);p.items[0].tmdb_id=42;o.output[1].content[0].text=JSON.stringify(p);}]){const x=structuredClone(base);modify(x);await assert.rejects(recommendTitles({likedTitles:likes,transport:{recommend:async()=>({...x,output_text:x.output.at(-1).content[0].text})}}),{code:'invalid_response'});}
@@ -73,12 +74,12 @@ test('completed search without provider URLs retains unverified titles but missi
 
 test('requests ten anchored recommendations and accepts a legacy short response',async()=>{
  let body;const transport=createOpenAITransport({apiKey:'secret',fetchImpl:async(_url,init)=>{body=JSON.parse(init.body);return new Response(JSON.stringify(output()),{status:200,headers:{'content-type':'application/json'}});}});
- const seed={title:'Anchor',original_title:'Anchor',year:1999,media_type:'movie'};
+ const seed={title:'Anchor',original_title:'Anchor',year:1999,media_type:'movie',overview:'A live broadcast turns into a thriller.',genres:['Thriller']};
  const result=await recommendTitles({likedTitles:likes,similarTo:seed,transport});
  assert.equal(result.targetCount,10);assert.equal(result.proposals.length,1);
- assert.deepEqual(body.tool_choice,{type:'web_search'});assert.equal(body.text.format.schema.properties.items.minItems,10);assert.equal(body.text.format.schema.properties.items.maxItems,10);
- assert.equal(JSON.parse(body.input.at(-1).content).target_count,10);
- assert.match(body.input[0].content,/similarTo.*primary.*(?:title.*year|year.*title)/i);assert.match(body.input[0].content,/likes.*secondary/i);assert.match(body.input[0].content,/theme.*tone.*pacing.*narrative.*stakes/i);
+ assert.deepEqual(body.tool_choice,{type:'web_search'});assert.equal(body.text.format.schema.properties.items.minItems,undefined);assert.equal(body.text.format.schema.properties.items.maxItems,10);
+ assert.match(body.input.at(-1).content,/Anchor: Anchor \(Anchor, 1999, movie\)/);assert.match(body.input.at(-1).content,/movies like Anchor 1999/);assert.match(body.input.at(-1).content,/live broadcast/);assert.match(body.input.at(-1).content,/Thriller/);
+ assert.match(body.input[0].content,/similarTo.*primary.*(?:title.*year|year.*title)/i);assert.match(body.input[0].content,/likes.*secondary/i);assert.match(body.input[0].content,/theme.*tone.*pacing.*narrative.*stakes/i);assert.match(body.input[0].content,/English queries/i);
 });
 
 test('classifies invalid model responses while retaining provider diagnostics',async()=>{
@@ -93,7 +94,37 @@ test('classifies invalid model responses while retaining provider diagnostics',a
   ['INVALID_JSON',x=>{x.output_text='{';}],
   ['INVALID_ITEMS',x=>{x.output_text=JSON.stringify({items:Array.from({length:11},(_,i)=>item(i))});}],
   ['INVALID_ITEM',x=>{x.output_text=JSON.stringify({items:[item(1),{...item(2),year:'bad'}]});}],
-  ['DUPLICATE_ITEMS',x=>{x.output_text=JSON.stringify({items:[item(1),item(1)]});}],
  ];
- for(const [reason,modify] of cases){const x=structuredClone(base);modify(x);await assert.rejects(recommendTitles({likedTitles:likes,transport:{recommend:async()=>x}}),e=>{assert.equal(e.code,'invalid_response');assert.equal(e.validationReason,reason);assert.equal(e.providerRequestId,'req_test');assert.equal(e.usage.total_tokens,9);assert.deepEqual(e.trace,{requestBody:'saved'});if(reason==='INVALID_ITEM'||reason==='DUPLICATE_ITEMS')assert.equal(e.itemIndex,1);return true;});}
+ for(const [reason,modify] of cases){const x=structuredClone(base);modify(x);await assert.rejects(recommendTitles({likedTitles:likes,transport:{recommend:async()=>x}}),e=>{assert.equal(e.code,'invalid_response');assert.equal(e.validationReason,reason);assert.equal(e.providerRequestId,'req_test');assert.equal(e.usage.total_tokens,9);assert.deepEqual(e.trace,{requestBody:'saved'});if(reason==='INVALID_ITEM')assert.equal(e.itemIndex,1);return true;});}
+});
+test('anchor keeps the catalog description and likes keep only genres',async()=>{
+ const rich=key=>({key,title:'Film '+key,original_title:'Original',release_date:'2020-01-01',overview:'A long overview',tagline:'Tag',genres:['Drama','Sci-Fi'],countries:['US'],director:'Nolan',cast:['A','B'],poster_path:'private'});
+ const result=await prepareResearchInput({records:[{key:'tmdb:movie:1',signals:['liked']}],seedKey:'tmdb:movie:9',provider:{hydrateCards:async keys=>keys.map(rich)}});
+ assert.deepEqual(result.likedTitles[0].genres,['Drama','Sci-Fi']);assert.equal(result.likedTitles[0].overview,undefined);assert.equal(result.likedTitles[0].director,undefined);
+ assert.equal(result.similarTo.overview,'A long overview');assert.equal(result.similarTo.tagline,'Tag');assert.equal(result.similarTo.director,'Nolan');assert.deepEqual(result.similarTo.cast,['A','B']);assert.deepEqual(result.similarTo.countries,['US']);
+});
+test('drops duplicate and already listed titles instead of failing the batch',async()=>{
+ const liked=[{title:'Kept',original_title:'Kept',year:1999,media_type:'movie'}];
+ const anchor={title:'Anchor',original_title:'Anchor',year:2001,media_type:'movie'};
+ const items=[item(1),item(1),{...proposal,title:'Kept',original_title:'Kept',year:1999},{...proposal,title:'Anchor',original_title:'Anchor',year:2001},item(2)];
+ const x=output();x.output_text=JSON.stringify({items});x.output[1].content[0].text=x.output_text;
+ const result=await recommendTitles({likedTitles:liked,similarTo:anchor,transport:{recommend:async()=>x}});
+ assert.deepEqual(result.proposals.map(p=>p.original_title),['Original 1','Original 2']);
+ const empty=output();empty.output_text=JSON.stringify({items:[items[2],items[3]]});empty.output[1].content[0].text=empty.output_text;
+ await assert.rejects(recommendTitles({likedTitles:liked,similarTo:anchor,transport:{recommend:async()=>empty}}),e=>e.code==='invalid_response'&&e.validationReason==='INVALID_ITEMS');
+});
+test('maps an unsupported search model without treating every bad request as unsupported',async()=>{
+ await assert.rejects(recommendTitles({likedTitles:likes,transport:{recommend:async()=>{throw Object.assign(new Error('does not support web_search'),{status:400});}}}),{code:'model_unsupported'});
+ await assert.rejects(recommendTitles({likedTitles:likes,transport:{recommend:async()=>{throw Object.assign(new Error('missing'),{status:404});}}}),{code:'model_unsupported'});
+ await assert.rejects(recommendTitles({likedTitles:likes,transport:{recommend:async()=>{throw Object.assign(new Error('bad schema'),{status:400});}}}),{code:'provider_error'});
+ assert.equal(failureFor('model_unsupported').code,'MODEL_UNSUPPORTED');assert.match(failureFor('model_unsupported').action,/модель/i);
+});
+test('reasoning models get a larger output budget and ordinary models keep the research cap',async()=>{
+ let payload;const transport=createOpenAITransport({client:{responses:{create:async p=>{payload=p;return {output_text:'{}'};}}}});
+ await transport.recommend({model:'gpt-5',schema:{type:'object'},input:{liked:likes,similarTo:{title:'Прайм-тайм',original_title:'Primetime',year:2026,media_type:'movie',overview:'Live television'},locale:'ru-RU',target_count:10}});
+ assert.equal(payload.reasoning.effort,'low');assert.equal(payload.max_output_tokens,8000);assert.match(payload.input.at(-1).content,/Primetime/);assert.match(payload.input.at(-1).content,/Live television/);
+ await transport.recommend({model:'o3-mini',schema:{type:'object'},input:{liked:likes,locale:'ru-RU',target_count:10}});
+ assert.equal(payload.max_output_tokens,8000);
+ await transport.rank({model:'gpt-4.1-mini',schema:{type:'object'},input:{}});
+ assert.equal(payload.reasoning,undefined);assert.equal(payload.max_output_tokens,2500);
 });

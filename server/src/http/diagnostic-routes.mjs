@@ -1,4 +1,5 @@
 import { ConfigError } from '../config/errors.mjs';
+import { FALLBACK_CHAT_MODELS } from '../recommendations/openai.mjs';
 export async function diagnosticRoute(req,path,url,diagnostics,body,recommendationService){
  const device=/^\/v1\/devices\/([^/]+)\/logs$/.exec(path);
  if(device&&req.method==='POST')return {status:201,body:diagnostics.addClient(decodeURIComponent(device[1]),await body())};
@@ -10,7 +11,7 @@ export async function diagnosticRoute(req,path,url,diagnostics,body,recommendati
  if(req.method==='GET'&&detail)return {body:diagnostics.getClient(detail[1])};
  if(req.method==='GET'&&path==='/v1/admin/diagnostics/ai')return {body:diagnostics.listAI({...params,kind:url.searchParams.get('kind'),status:url.searchParams.get('status')})};
  if(req.method==='GET'&&path==='/v1/admin/diagnostics/ai/summary')return {body:diagnostics.summary()};
- if(req.method==='GET'&&path==='/v1/admin/diagnostics/ai/models')return {body:{models:['gpt-4.1-mini','gpt-4.1','gpt-4.1-nano']}};
+ if(req.method==='GET'&&path==='/v1/admin/diagnostics/ai/models'){let models=[...FALLBACK_CHAT_MODELS];if(recommendationService?.listModels){try{const listed=await recommendationService.listModels();if(Array.isArray(listed)&&listed.length)models=listed;}catch{/* Keep the static list when the provider is unavailable. */}}return {body:{models}};}
  const ai=/^\/v1\/admin\/diagnostics\/ai\/([^/]+)(\/(?:replay|preview|comparisons))?$/.exec(path);
  if(ai&&req.method==='GET'&&!ai[2])return {body:diagnostics.getAI(ai[1])};
  if(ai&&req.method==='GET'&&ai[2]==='/comparisons')return {body:diagnostics.listComparisons(ai[1],params)};

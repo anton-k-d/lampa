@@ -20,6 +20,11 @@ test('candidate selection excludes viewed, started, seed and adult, preserves ty
   assert.equal(result.partial,true); assert(result.candidates.some(x=>x.key==='tmdb:movie:5')); assert(!result.candidates.some(x=>['tmdb:movie:1','tmdb:movie:2','tmdb:movie:3','tmdb:movie:4'].includes(x.key))); assert(result.candidates.some(x=>x.key==='tmdb:tv:2'));
 });
 
+test('hydrated cards keep genres, countries and credits for research',async()=>{
+ const catalog=createMetadataCatalog({baseUrl:'https://proxy.test',fetchImpl:async url=>{assert.match(String(url),/append_to_response=credits/);return new Response(JSON.stringify({id:7,title:'Prime',original_title:'Primetime',release_date:'2026-01-01',overview:'A host survives live television.',tagline:'Stay on air',genres:[{id:53,name:'Thriller'}],production_countries:[{name:'United States'}],credits:{crew:[{name:'Ada',job:'Director'}],cast:[{name:'Bea'}]}}));}});
+ const [card]=await catalog.hydrateCards(['tmdb:movie:7']);
+ assert.equal(card.overview.includes('live television'),true);assert.equal(card.tagline,'Stay on air');assert.deepEqual(card.genres,['Thriller']);assert.deepEqual(card.countries,['United States']);assert.equal(card.director,'Ada');assert.deepEqual(card.cast,['Bea']);
+});
 test('hydrated TV cards retain native navigation fields and overlapping IDs',async()=>{
  const catalog=createMetadataCatalog({baseUrl:'https://proxy.test',fetchImpl:async url=>new Response(JSON.stringify(String(url).includes('/tv/')?{id:42,name:'Series',original_name:'Original',first_air_date:'2020-01-01'}:{id:42,title:'Film'}))});
  const cards=await catalog.hydrateCards(['tmdb:tv:42','tmdb:movie:42']);

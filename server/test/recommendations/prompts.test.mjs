@@ -26,6 +26,8 @@ test('prompt validation requires exactly two trimmed, nonempty bounded strings',
  const db=openConfigDatabase(':memory:');try{const settings=createAISettings(db,createRuntimeStore(db)),doc=settings.read().document;
  for(const bad of [{home:' ',similar:'ok'},{home:'ok',similar:''},{home:'x'.repeat(4001),similar:'ok'},{home:'ok'},{...prompts,extra:'x'},{home:42,similar:'ok'},null]) assert.throws(()=>settings.save({...doc,prompts:bad},0),{code:'INVALID_CONFIG'});
  assert.deepEqual(settings.save({...doc,prompts:{home:'  hello  ',similar:'  world  '}},0).document.prompts,{home:'hello',similar:'world'});
+ for(const model of ['gpt-5','o3-mini','ft:gpt-4.1:custom'])assert.equal(settings.save({...settings.read().document,model},settings.read().revision).document.model,model);
+ for(const model of ['','gpt 5','модель','x'.repeat(65)])assert.throws(()=>settings.save({...settings.read().document,model},settings.read().revision),{code:'INVALID_CONFIG'});
  }finally{db.close();}
 });
 test('ranking sends custom instructions as developer content while preserving system guard',async()=>{
