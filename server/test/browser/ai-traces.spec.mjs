@@ -95,3 +95,16 @@ test('running comparison is reported as pending', async ({page}) => {
   await page.locator('#aiTraceReplay').click();
   await expect(page.locator('#aiTraceStatus')).toContainText('ещё выполняется');
 });
+
+test('event actions stay compact and details open in view with a return action', async ({page}) => {
+  await page.setViewportSize({width:1440,height:900});
+  await setup(page, route => route.fulfill({json:detail('one')}));
+  const button = page.getByRole('button',{name:'Открыть one',exact:true});
+  await expect(button).toHaveText('Подробнее');
+  await button.click();
+  await expect(page.locator('#aiTracePanel')).toBeInViewport();
+  await expect(page.locator('#aiTracePanel')).toBeFocused();
+  await page.getByRole('button',{name:'К событию'}).click();
+  await expect(button).toBeFocused();
+  expect(await page.locator('main').evaluate(el=>el.getBoundingClientRect().width)).toBeGreaterThan(1300);
+});

@@ -516,12 +516,14 @@ async function loadDiagnosticAi(cursor = null) {
     for (const item of list.items) {
       const row = diagnosticRow($('diagnosticsAiRows'), [diagnosticTime(item.time), `${diagnosticValue(item.profileId)} / ${diagnosticValue(item.deviceId)}`, `${diagnosticValue(item.kind)} / ${diagnosticValue(item.model)}`, diagnosticValue(item.status), diagnosticTokens(item), item.latencyMs == null ? 'Неизвестно' : `${item.latencyMs} мс`, `Событие: ${diagnosticValue(item.id)}; задача: ${diagnosticValue(item.jobId)}; запрос: ${diagnosticValue(item.providerRequestId)}; ошибка: ${diagnosticValue(item.errorCode)}`]);
       const cell = document.createElement('td'), button = document.createElement('button');
-      button.type = 'button'; button.textContent = `Открыть ${item.id}`; button.addEventListener('click', () => openAiTrace(item.id)); cell.appendChild(button); row.appendChild(cell);
+      button.type = 'button'; button.textContent = "Подробнее"; button.setAttribute("aria-label", `Открыть ${item.id}`); button.addEventListener('click', () => { aiTraceTrigger = button; openAiTrace(item.id); }); cell.appendChild(button); row.appendChild(cell);
     }
     diagnosticAiCursor = list.nextCursor; $('diagnosticsAiNext').disabled = !diagnosticAiCursor;
     $('diagnosticsAiStatus').textContent = list.items.length ? 'Журнал загружен.' : 'Событий нет.';
   } catch { $('diagnosticsAiStatus').textContent = 'Не удалось загрузить журнал ИИ. Попробуйте обновить.'; }
 }
+let aiTraceTrigger = null;
+$("aiTraceBack").addEventListener("click", () => { $("aiTracePanel").hidden = true; aiTraceTrigger?.focus(); });
 let aiTraceSelection = 0, aiTraceDetail = null, aiTracePending = null, aiTraceBusy = false;
 function traceUuid() {
   if (globalThis.crypto?.randomUUID) return crypto.randomUUID();
@@ -542,6 +544,9 @@ function updateTraceControls() {
   $('aiTraceModel').disabled = aiTraceBusy || !$('aiTraceModel').options.length;
 }
 async function openAiTrace(id) {
+  $('aiTracePanel').hidden = false;
+  $('aiTracePanel').scrollIntoView({block:'start'});
+  $('aiTracePanel').focus({preventScroll:true});
   const selection = ++aiTraceSelection;
   aiTraceDetail = null; aiTracePending = null; aiTraceBusy = false;
   $('aiTraceStatus').textContent = 'Загрузка события…';
@@ -600,7 +605,7 @@ async function loadDiagnosticClients(cursor = null) {
     const list = await api(`${diagnosticsBase}/client-logs?${params}`); $('diagnosticsClientRows').replaceChildren();
     for (const item of list.items) {
       const row = diagnosticRow($('diagnosticsClientRows'), [`${diagnosticValue(item.deviceId)} / ${diagnosticValue(item.id)}`, diagnosticTime(item.receivedAt), `${diagnosticValue(item.client?.appVersion)} / ${diagnosticValue(item.client?.platform)}`, diagnosticValue(item.entryCount), item.truncated ? 'Да' : 'Нет']);
-      const cell = document.createElement('td'), button = document.createElement('button'); button.type = 'button'; button.textContent = `Открыть ${item.id}`;
+      const cell = document.createElement('td'), button = document.createElement('button'); button.type = 'button'; button.textContent = "Подробнее"; button.setAttribute("aria-label", `Открыть ${item.id}`);
       button.addEventListener('click', () => loadDiagnosticDetail(item.id)); cell.appendChild(button); row.appendChild(cell);
     }
     diagnosticClientCursor = list.nextCursor; $('diagnosticsClientNext').disabled = !diagnosticClientCursor;
@@ -609,6 +614,9 @@ async function loadDiagnosticClients(cursor = null) {
 }
 let diagnosticDetailId = null;
 async function loadDiagnosticDetail(id) {
+  $('diagnosticsDetailStatus').setAttribute('tabindex', '-1');
+  $('diagnosticsDetailStatus').scrollIntoView({block:'center'});
+  $('diagnosticsDetailStatus').focus({preventScroll:true});
   $('diagnosticsDetailStatus').textContent = 'Загрузка выгрузки…'; $('diagnosticsClientDetail').textContent = ''; $('diagnosticsDownload').disabled = true;
   try { const detail = await api(`${diagnosticsBase}/client-logs/${encodeURIComponent(id)}`); $('diagnosticsClientDetail').textContent = JSON.stringify(detail, null, 2); $('diagnosticsDetailStatus').textContent = `Выгрузка ${id}`; diagnosticDetailId = id; $('diagnosticsDownload').disabled = false; }
   catch { $('diagnosticsDetailStatus').textContent = 'Не удалось открыть выгрузку.'; }
@@ -624,3 +632,10 @@ $('diagnosticsDownload').addEventListener('click', () => {
   const link = document.createElement('a'); link.href = url; link.download = `diagnostics-${String(diagnosticDetailId).replace(/[^A-Za-z0-9_-]/g, '_')}.json`;
   document.body.appendChild(link); link.click(); link.remove(); setTimeout(() => URL.revokeObjectURL(url), 0);
 });
+
+const journal = $('aiJournal');
+document.querySelector('nav').after(journal);
+journal.after($('aiSettings'));
+
+loadDiagnosticAi();
+loadDiagnosticClients();
