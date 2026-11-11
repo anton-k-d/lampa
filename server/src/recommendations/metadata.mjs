@@ -17,11 +17,13 @@ export function createMetadataCatalog({baseUrl,fetchImpl=fetch,now=Date.now,cach
     if(active<3){active++;return;}
     await new Promise((resolve,reject)=>{const entry={resolve:()=>{signal?.removeEventListener('abort',abort);resolve();},reject}; const abort=()=>{const i=queue.indexOf(entry);if(i>=0)queue.splice(i,1);reject(signal.reason);}; signal?.addEventListener('abort',abort,{once:true});queue.push(entry);});
   }
+  const metadataCode=error=>error?.name==='TimeoutError'||error?.name==='AbortError'||controllerTimedOut(error)?'METADATA_TIMEOUT':'METADATA_UNAVAILABLE';
+  const controllerTimedOut=error=>error?.code==='METADATA_TIMEOUT';
   function release(){const next=queue.shift();if(next)next.resolve();else active--;}
   async function get(path,params,signal) {
     const url=new URL(base+path); for(const [k,v] of Object.entries(params)) if(v!=null) url.searchParams.set(k,String(v));
     const key=url.toString(); const hit=cache.get(key); if(hit && hit.until>now()) return hit.value;
-    await acquire(signal); try {const response=await bounded(fetchImpl(key,{signal}),signal);if(!response.ok) throw Error('metadata request failed'); return await bounded(response.json(),signal);} finally {release();}
+    try {await acquire(signal);} catch(error){throw Object.assign(new Error('metadata request failed'),{code:metadataCode(error)});} try {const response=await bounded(fetchImpl(key,{signal}),signal);if(!response.ok) throw Error('metadata request failed'); return await bounded(response.json(),signal);} catch(error){throw Object.assign(new Error('metadata request failed'),{code:metadataCode(error)});} finally {release();}
   }
   function save(key,value,ttl=86400000){cache.delete(key);cache.set(key,{value,until:now()+ttl});while(cache.size>Math.max(1,cacheLimit))cache.delete(cache.keys().next().value);}
   async function getList({type,id,category,locale='en-US',page=1,signal}) {
@@ -38,7 +40,7 @@ export function createMetadataCatalog({baseUrl,fetchImpl=fetch,now=Date.now,cach
     const controller=new AbortController();
     const externalAbort=()=>controller.abort(signal.reason);
     signal?.addEventListener('abort',externalAbort,{once:true});
-    const timer=setTimeout(()=>controller.abort(new Error('metadata resolution timed out')),20000);
+    const timer=setTimeout(()=>controller.abort(Object.assign(new Error('metadata resolution timed out'),{code:'METADATA_TIMEOUT'})),20000);
     const normalize=value=>typeof value==='string'?value.normalize('NFKC').toLocaleLowerCase().replace(/[\p{P}\p{S}\s]+/gu,' ').trim():'';
     const matches=(raw,p,type)=>{
       if(!raw||raw.adult===true||!Number.isSafeInteger(raw.id)||raw.id<1||raw.id>999999999999||(raw.media_type&&raw.media_type!==type))return false;
@@ -63,12 +65,12 @@ export function createMetadataCatalog({baseUrl,fetchImpl=fetch,now=Date.now,cach
             if(found.size===1)return {index,key:`tmdb:${type}:${found.keys().next().value}`};
           }
           return {index,status:'not_found'};
-        } catch(error) {if(signal?.aborted)throw signal.reason;return {index,status:'error'};}
+        } catch(error) {if(signal?.aborted)throw signal.reason;return {index,status:'error',errorCode:metadataCode(error)};}
       }));
       const keys=[...new Set(selections.filter(x=>x.key).map(x=>x.key))];
-      const details=new Map(await Promise.all(keys.map(async key=>{try {const cards=await hydrateCards([key],{locale,signal:controller.signal});return [key,{card:cards[0]}];}catch(error){if(signal?.aborted)throw signal.reason;return [key,{error:true}];}})));
+      const details=new Map(await Promise.all(keys.map(async key=>{try {const cards=await hydrateCards([key],{locale,signal:controller.signal});return [key,{card:cards[0]}];}catch(error){if(signal?.aborted)throw signal.reason;return [key,{errorCode:metadataCode(error)}];}})));
       const items=[],unresolved=[];
-      for(const selection of selections){const {index,key,status}=selection;if(status){unresolved.push({index,status});continue;}const detail=details.get(key);const p=proposals[index];if(detail.error){unresolved.push({index,status:'error'});continue;}const card=detail.card;if(!card||card.key!==key||!matches(card,p,p.media_type)){unresolved.push({index,status:'not_found'});continue;}items.push({proposal:p,card});}
+      for(const selection of selections){const {index,key,status,errorCode}=selection;if(status){unresolved.push({index,status,...(errorCode?{errorCode}:{})});continue;}const detail=details.get(key);const p=proposals[index];if(detail.errorCode){unresolved.push({index,status:'error',errorCode:detail.errorCode});continue;}const card=detail.card;if(!card||card.key!==key||!matches(card,p,p.media_type)){unresolved.push({index,status:'not_found'});continue;}items.push({proposal:p,card});}
       return {items,unresolved};
     } finally {clearTimeout(timer);signal?.removeEventListener('abort',externalAbort);}
   }

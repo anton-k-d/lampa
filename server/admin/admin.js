@@ -536,7 +536,23 @@ function traceUuid() {
 }
 function traceMeta(detail) {
   const e = detail.event || {}, t = detail.trace;
-  return `Событие: ${diagnosticValue(e.id)}; родитель: ${diagnosticValue(detail.parentEventId)}; модель: ${diagnosticValue(e.model)}; результат: ${diagnosticValue(e.status)}; токены вход / выход / всего / кэш: ${diagnosticTokens(e)}; длительность: ${e.latencyMs == null ? 'Неизвестно' : e.latencyMs + ' мс'}; HTTP: ${diagnosticValue(t?.httpStatus)}; захват: ${diagnosticValue(t?.capture)}; обрезано: ${t?.truncated ? 'Да' : 'Нет'}; очищено: ${t?.redacted ? 'Да' : 'Нет'}; ошибка транспорта: ${diagnosticValue(t?.transportError)}${e.citationSummary ? `; Источники: подтверждено ${e.citationSummary.verified}, частично ${e.citationSummary.partial}, не подтверждено ${e.citationSummary.unverified}` : ''}`;
+  return `Событие: ${diagnosticValue(e.id)}; родитель: ${diagnosticValue(detail.parentEventId)}; модель: ${diagnosticValue(e.model)}; Модель: ${diagnosticValue(e.status)}; ${pipelineMeta(e)}; токены вход / выход / всего / кэш: ${diagnosticTokens(e)}; длительность: ${e.latencyMs == null ? 'Неизвестно' : e.latencyMs + ' мс'}; HTTP: ${diagnosticValue(t?.httpStatus)}; захват: ${diagnosticValue(t?.capture)}; обрезано: ${t?.truncated ? 'Да' : 'Нет'}; очищено: ${t?.redacted ? 'Да' : 'Нет'}; ошибка транспорта: ${diagnosticValue(t?.transportError)}${e.citationSummary ? `; Источники: подтверждено ${e.citationSummary.verified}, частично ${e.citationSummary.partial}, не подтверждено ${e.citationSummary.unverified}` : ''}`;
+}
+function pipelineMeta(event) {
+  const p = event.pipeline;
+  if (!p || typeof p !== 'object') return 'Результат подборки не записан';
+  const stages = {prepare:'подготовка', research:'поиск модели', metadata:'проверка TMDB', filter:'фильтрация', complete:'завершение'};
+  const states = {running:'выполняется', failed:'ошибка', ready:'готово'};
+  const code = typeof p.errorCode === 'string' && /^[A-Z][A-Z0-9_]{0,63}$/.test(p.errorCode) ? p.errorCode : 'Неизвестно';
+  let result = `Подборка: ${states[p.state] || 'неизвестно'}, этап: ${stages[p.stage] || 'неизвестно'}`;
+  if (p.errorCode) result += `, код: ${code}`;
+  if (event.status === 'success' && p.state === 'failed' && p.stage === 'metadata') result += '; модель ответила, но TMDB не удалось проверить результаты';
+  const s = p.selection;
+  if (s && ['requested','proposed','resolved','excluded','returned','unresolved'].every(k => Number.isInteger(s[k]) && s[k] >= 0 && s[k] <= 1000)) {
+    result += `; запрошено ${s.requested}, предложено ${s.proposed}, сопоставлено с TMDB ${s.resolved}, исключено ${s.excluded}, не сопоставлено ${s.unresolved}, показано ${s.returned}`;
+    if (s.returned < s.requested) result += ' (часть названий могла не пройти проверку или локальные исключения)';
+  }
+  return result;
 }
 function updateTraceControls() {
   const usable = aiTraceDetail?.trace && !aiTraceDetail.trace.truncated && !aiTraceDetail.trace.redacted;

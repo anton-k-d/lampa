@@ -70,3 +70,30 @@ test('completed search without provider URLs retains unverified titles but missi
  const result=await research([item(1,'https://invented.example/')],[]);assert.deepEqual(result.proposals[0].sources,[]);assert.equal(result.proposals[0].citationStatus,'unverified');assert.deepEqual(result.citationSummary,{verified:0,partial:0,unverified:1});
  const x=output();x.output.shift();x.output_text=JSON.stringify({items:[item(1)]});await assert.rejects(recommendTitles({likedTitles:likes,transport:{recommend:async()=>x}}),{code:'invalid_response'});
 });
+
+test('requests ten anchored recommendations and accepts a legacy short response',async()=>{
+ let body;const transport=createOpenAITransport({apiKey:'secret',fetchImpl:async(_url,init)=>{body=JSON.parse(init.body);return new Response(JSON.stringify(output()),{status:200,headers:{'content-type':'application/json'}});}});
+ const seed={title:'Anchor',original_title:'Anchor',year:1999,media_type:'movie'};
+ const result=await recommendTitles({likedTitles:likes,similarTo:seed,transport});
+ assert.equal(result.targetCount,10);assert.equal(result.proposals.length,1);
+ assert.deepEqual(body.tool_choice,{type:'web_search'});assert.equal(body.text.format.schema.properties.items.minItems,10);assert.equal(body.text.format.schema.properties.items.maxItems,10);
+ assert.equal(JSON.parse(body.input.at(-1).content).target_count,10);
+ assert.match(body.input[0].content,/similarTo.*primary.*(?:title.*year|year.*title)/i);assert.match(body.input[0].content,/likes.*secondary/i);assert.match(body.input[0].content,/theme.*tone.*pacing.*narrative.*stakes/i);
+});
+
+test('classifies invalid model responses while retaining provider diagnostics',async()=>{
+ const base=output({_request_id:'req_test',usage:{input_tokens:4,output_tokens:5,total_tokens:9},trace:{requestBody:'saved'}});base.output_text=JSON.stringify({items:[item(1)]});
+ const cases=[
+  ['SEARCH_REQUIRED',x=>x.output.shift()],
+  ['SEARCH_REQUIRED',x=>{x.output[0].status='failed';}],
+  ['MODEL_FAILED',x=>{x.status='incomplete';x.incomplete_details={reason:'content_filter'};}],
+  ['OUTPUT_LIMIT',x=>{x.status='incomplete';x.incomplete_details={reason:'max_output_tokens'};}],
+  ['MODEL_REFUSED',x=>{x.output[1].content=[{type:'refusal',refusal:'no'}];}],
+  ['MODEL_FAILED',x=>{x.status='failed';}],
+  ['INVALID_JSON',x=>{x.output_text='{';}],
+  ['INVALID_ITEMS',x=>{x.output_text=JSON.stringify({items:Array.from({length:11},(_,i)=>item(i))});}],
+  ['INVALID_ITEM',x=>{x.output_text=JSON.stringify({items:[item(1),{...item(2),year:'bad'}]});}],
+  ['DUPLICATE_ITEMS',x=>{x.output_text=JSON.stringify({items:[item(1),item(1)]});}],
+ ];
+ for(const [reason,modify] of cases){const x=structuredClone(base);modify(x);await assert.rejects(recommendTitles({likedTitles:likes,transport:{recommend:async()=>x}}),e=>{assert.equal(e.code,'invalid_response');assert.equal(e.validationReason,reason);assert.equal(e.providerRequestId,'req_test');assert.equal(e.usage.total_tokens,9);assert.deepEqual(e.trace,{requestBody:'saved'});if(reason==='INVALID_ITEM'||reason==='DUPLICATE_ITEMS')assert.equal(e.itemIndex,1);return true;});}
+});

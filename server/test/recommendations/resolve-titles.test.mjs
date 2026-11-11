@@ -18,7 +18,7 @@ test('resolves exact search results, hydrates unique cards, and caches search',a
 test('reports ambiguous, wrong year and network errors independently',async()=>{
  const catalog=createMetadataCatalog({baseUrl:'https://proxy.test',fetchImpl:async url=>{const u=new URL(url);const q=u.searchParams.get('query');if(q==='Error')throw Error('offline');if(q==='Ambiguous')return response({results:[film(1,q),film(2,q)]});return response({results:[film(3,q,2019)]});}});
  const result=await catalog.resolveTitles([proposal('Ambiguous'),proposal('Missing'),proposal('Error')]);
- assert.deepEqual(result,{items:[],unresolved:[{index:0,status:'ambiguous'},{index:1,status:'not_found'},{index:2,status:'error'}]});
+ assert.deepEqual(result,{items:[],unresolved:[{index:0,status:'ambiguous'},{index:1,status:'not_found'},{index:2,status:'error',errorCode:'METADATA_UNAVAILABLE'}]});
 });
 
 test('falls back to localized title and rejects changed hydrated identity',async()=>{

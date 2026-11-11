@@ -54,6 +54,34 @@ test('old events without trace cannot replay', async ({page}) => {
   await expect(page.locator('#aiTraceStatus')).toContainText('нет сохранённой трассы');
   await expect(page.locator('#aiTraceReplay')).toBeDisabled();
   await expect(page.locator('#aiTraceMeta')).not.toContainText('Источники:');
+  await expect(page.locator('#aiTraceMeta')).toContainText('Результат подборки не записан');
+});
+test('model success and failed metadata are separate and raw copy stays intact', async ({page}) => {
+  await page.addInitScript(() => { window.copied = []; Object.defineProperty(navigator, 'clipboard', {value:{writeText: async text => window.copied.push(text)}}); });
+  await setup(page, route => {
+    const d = detail('one'); d.event.pipeline = {stage:'metadata', state:'failed', errorCode:'METADATA_TIMEOUT', selection:null};
+    return route.fulfill({json:d});
+  });
+  await page.getByRole('button',{name:'Открыть one'}).click();
+  await expect(page.locator('#aiTraceMeta')).toContainText('Модель: success');
+  await expect(page.locator('#aiTraceMeta')).toContainText('модель ответила, но TMDB');
+  await expect(page.locator('#aiTraceMeta')).toContainText('METADATA_TIMEOUT');
+  await expect(page.locator('#aiTraceRequest')).toHaveText(raw);
+  await page.locator('#aiTraceCopy').click();
+  await expect.poll(() => page.evaluate(() => window.copied)).toEqual([raw]);
+});
+test('partial pipeline counts are explained and untrusted codes remain text', async ({page}) => {
+  await setup(page, route => {
+    const d = detail('one'); d.event.pipeline = {stage:'complete', state:'ready', errorCode:'<img src=x onerror=alert(1)>', selection:{requested:10, proposed:10, resolved:9, excluded:2, returned:7, unresolved:1}};
+    return route.fulfill({json:d});
+  });
+  await page.getByRole('button',{name:'Открыть one'}).click();
+  const meta = page.locator('#aiTraceMeta');
+  await expect(meta).toContainText('запрошено 10');
+  await expect(meta).toContainText('показано 7');
+  await expect(meta).toContainText('исключено 2');
+  await expect(meta).toContainText('не сопоставлено 1');
+  await expect(meta.locator('img')).toHaveCount(0);
 });
 test('switching events ignores stale details and truncated traces cannot replay', async ({page}) => {
   let release; const delayed = new Promise(r => { release = r; });

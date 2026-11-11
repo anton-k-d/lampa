@@ -51,3 +51,32 @@ test('home refresh explains missing likes without polling a job',async({page})=>
  await expect(page.locator('body')).toContainText('Добавьте лайки');
  expect(posts).toBe(1);expect(polls).toBe(0);
 });
+test('partial saved home cards show selection and last failure without generation',async({page})=>{
+ test.setTimeout(30000);let posts=0;
+ await page.route('**/*',route=>route.request().url().startsWith(base+'/')?route.continue():route.fulfill({json:{results:[],page:1,total_pages:1},headers:{'access-control-allow-origin':'*'}}));
+ await page.route('**/v1/devices/*/recommendations/**',route=>{const req=route.request(),path=new URL(req.url()).pathname;
+  if(path.endsWith('/capabilities'))return route.fulfill({json:{enabled:true,state:'ready'}});
+  if(path.endsWith('/signals'))return route.fulfill({json:{acceptedSeq:req.postDataJSON().seq}});
+  if(path.endsWith('/home/refresh'))posts++;
+  return route.fulfill({json:{state:'ready',stale:true,targetCount:10,selection:{requested:10,proposed:8,resolved:5,excluded:2,returned:3,unresolved:3},lastError:{code:'METADATA_TIMEOUT',stage:'metadata',message:'Каталог не ответил вовремя',action:'Попробуйте ещё раз',retryable:true},items:[{card:{id:12,source:'tmdb',media_type:'movie',title:'Saved movie',release_date:'2020-01-01'}}]}});
+ });
+ await page.addInitScript(()=>{localStorage.setItem('language','ru');localStorage.setItem('source','cub')});
+ await page.goto(base+'/app/');await page.waitForFunction(()=>window.appready===true);await page.waitForFunction(()=>Lampa.Activity.active()?.component==='main');
+ const row=page.locator('.items-line').filter({hasText:'Для тебя'}).first();await expect(row).toContainText('Saved movie');await expect(row).toContainText('3 из 10');await expect(row).toContainText('исключено: 2');await expect(row).toContainText('не найдено: 3');await expect(row).toContainText('Каталог не ответил вовремя');await expect(row).toContainText('METADATA_TIMEOUT');expect(posts).toBe(0);
+});
+test('home quota recheck offers an explicit new generation only after eligibility returns',async({page})=>{
+ test.setTimeout(30000);let posts=0,gets=0;
+ const failure={code:'QUOTA_EXCEEDED',stage:'prepare',message:'Лимит исчерпан',action:'Дождитесь обновления',retryable:false};
+ await page.route('**/*',route=>route.request().url().startsWith(base+'/')?route.continue():route.fulfill({json:{results:[],page:1,total_pages:1},headers:{'access-control-allow-origin':'*'}}));
+ await page.route('**/v1/devices/*/recommendations/**',route=>{const req=route.request(),path=new URL(req.url()).pathname;
+  if(path.endsWith('/capabilities'))return route.fulfill({json:{enabled:true,state:'ready'}});
+  if(path.endsWith('/signals'))return route.fulfill({json:{acceptedSeq:req.postDataJSON().seq}});
+  if(path.endsWith('/home/refresh')){posts++;return route.fulfill({json:{state:'no_likes'}})}
+  if(path.endsWith('/home')){gets++;return route.fulfill({json:{state:'ready',canGenerate:gets>1,lastError:failure,items:[{card:{id:12,source:'tmdb',media_type:'movie',title:'Saved movie',release_date:'2020-01-01'}}]}})}
+  return route.fulfill({json:{state:'ready'}});
+ });
+ await page.addInitScript(()=>{localStorage.setItem('language','ru');localStorage.setItem('source','cub')});await page.goto(base+'/app/');await page.waitForFunction(()=>window.appready===true);await page.waitForFunction(()=>Lampa.Activity.active()?.component==='main');
+ const row=page.locator('.items-line').filter({hasText:'Для тебя'}).first();await expect(row).toContainText('Saved movie');await expect(row.locator('.ai-home-recovery')).toBeHidden();
+ await row.locator('.ai-home-refresh').evaluate(el=>$(el).trigger('hover:enter'));await expect(row.locator('.ai-home-recovery')).toBeVisible();expect(posts).toBe(0);
+ await row.locator('.ai-home-recovery').evaluate(el=>$(el).trigger('hover:enter'));await expect.poll(()=>posts).toBe(1);
+});
