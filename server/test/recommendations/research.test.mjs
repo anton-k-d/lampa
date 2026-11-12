@@ -119,12 +119,14 @@ test('maps an unsupported search model without treating every bad request as uns
  await assert.rejects(recommendTitles({likedTitles:likes,transport:{recommend:async()=>{throw Object.assign(new Error('bad schema'),{status:400});}}}),{code:'provider_error'});
  assert.equal(failureFor('model_unsupported').code,'MODEL_UNSUPPORTED');assert.match(failureFor('model_unsupported').action,/модель/i);
 });
-test('reasoning models get a larger output budget and ordinary models keep the research cap',async()=>{
+test('reasoning models request low effort and every model gets a larger output budget',async()=>{
  let payload;const transport=createOpenAITransport({client:{responses:{create:async p=>{payload=p;return {output_text:'{}'};}}}});
  await transport.recommend({model:'gpt-5',schema:{type:'object'},input:{liked:likes,similarTo:{title:'Прайм-тайм',original_title:'Primetime',year:2026,media_type:'movie',overview:'Live television'},locale:'ru-RU',target_count:10}});
  assert.equal(payload.reasoning.effort,'low');assert.equal(payload.max_output_tokens,8000);assert.match(payload.input.at(-1).content,/Primetime/);assert.match(payload.input.at(-1).content,/Live television/);
  await transport.recommend({model:'o3-mini',schema:{type:'object'},input:{liked:likes,locale:'ru-RU',target_count:10}});
- assert.equal(payload.max_output_tokens,8000);
+ assert.equal(payload.reasoning.effort,'low');assert.equal(payload.max_output_tokens,8000);
+ await transport.recommend({model:'gpt-6-luna',schema:{type:'object'},input:{liked:likes,locale:'ru-RU',target_count:10}});
+ assert.equal(payload.reasoning.effort,'low');assert.equal(payload.max_output_tokens,8000);
  await transport.rank({model:'gpt-4.1-mini',schema:{type:'object'},input:{}});
- assert.equal(payload.reasoning,undefined);assert.equal(payload.max_output_tokens,2500);
+ assert.equal(payload.reasoning,undefined);assert.equal(payload.max_output_tokens,8000);
 });

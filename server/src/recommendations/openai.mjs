@@ -22,9 +22,10 @@ export async function listChatModels({apiKey,fetchImpl,now=Date.now}={}){
 }
 function tuned(payload){
  if(!payload||typeof payload!=='object'||Array.isArray(payload))return payload;
- const reasoning=/^(?:o\d|gpt-5)/i.test(typeof payload.model==='string'?payload.model:'');
+ const reasoning=/^(?:o\d|gpt-(?:[5-9]|\d{2,}))/i.test(typeof payload.model==='string'?payload.model:'');
  const next={...payload};
- if(reasoning){next.max_output_tokens=Math.max(Number.isInteger(next.max_output_tokens)?next.max_output_tokens:0,8000);next.reasoning={effort:'low'};}
+ next.max_output_tokens=Math.max(Number.isInteger(next.max_output_tokens)?next.max_output_tokens:0,8000);
+ if(reasoning)next.reasoning={effort:'low'};
  else if(Object.hasOwn(next,'reasoning'))delete next.reasoning;
  return next;
 }

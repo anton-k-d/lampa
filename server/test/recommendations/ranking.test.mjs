@@ -14,7 +14,7 @@ test('rejects unknown, duplicate and unsupported reason links',async()=>{
 test('SDK transport disables storage and retries and bounds output',async()=>{
  let payload,options; const transport=createOpenAITransport({client:{responses:{create:async(p,o)=>{payload=p; options=o; return {};}}}});
  await transport.rank({model:'gpt-4.1-mini',schema:{type:'object'},input:'data'});
- assert.equal(payload.store,false); assert.equal(payload.max_output_tokens,2500); assert.equal(options.maxRetries,0); assert.equal(payload.text.format.type,'json_schema');
+ assert.equal(payload.store,false); assert.equal(payload.max_output_tokens,8000); assert.equal(options.maxRetries,0); assert.equal(payload.text.format.type,'json_schema');
 });
 
 test('refusals, incomplete responses and malformed JSON fail closed',async()=>{

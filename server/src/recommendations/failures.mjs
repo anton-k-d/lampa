@@ -10,7 +10,7 @@ const entries={
  PROVIDER_RATE_LIMIT:['research','Сервис AI ограничил запросы.','Повторите запрос позже.',true],
  PROVIDER_TIMEOUT:['research','Сервис AI не ответил вовремя.','Повторите запрос позже.',true],
  PROVIDER_UNAVAILABLE:['research','Сервис AI недоступен.','Повторите запрос позже.',true],
- OUTPUT_LIMIT:['research','Ответ AI оказался слишком длинным.','Повторите запрос.',true],
+ OUTPUT_LIMIT:['research','Ответ AI оказался слишком длинным или обрезан.','Выберите другую модель или повторите запрос.',true],
  SEARCH_REQUIRED:['research','AI не выполнил поиск.','Повторите запрос.',true],
  MODEL_REFUSED:['research','AI отказался выполнить запрос.','Измените запрос и попробуйте снова.',true],
  INVALID_JSON:['research','AI вернул ответ в неверном формате.','Повторите запрос.',true],
