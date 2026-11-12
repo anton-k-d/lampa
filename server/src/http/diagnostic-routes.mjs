@@ -10,6 +10,7 @@ export async function diagnosticRoute(req,path,url,diagnostics,body,recommendati
  const detail=/^\/v1\/admin\/diagnostics\/client-logs\/([^/]+)$/.exec(path);
  if(req.method==='GET'&&detail)return {body:diagnostics.getClient(detail[1])};
  if(req.method==='GET'&&path==='/v1/admin/diagnostics/ai')return {body:diagnostics.listAI({...params,kind:url.searchParams.get('kind'),status:url.searchParams.get('status')})};
+ if(req.method==='DELETE'&&path==='/v1/admin/diagnostics/ai')return {body:diagnostics.clearAI()};
  if(req.method==='GET'&&path==='/v1/admin/diagnostics/ai/summary')return {body:diagnostics.summary()};
  if(req.method==='GET'&&path==='/v1/admin/diagnostics/ai/models'){let models=[...FALLBACK_CHAT_MODELS];if(recommendationService?.listModels){try{const listed=await recommendationService.listModels();if(Array.isArray(listed)&&listed.length)models=listed;}catch{/* Keep the static list when the provider is unavailable. */}}return {body:{models}};}
  const ai=/^\/v1\/admin\/diagnostics\/ai\/([^/]+)(\/(?:replay|preview|comparisons))?$/.exec(path);

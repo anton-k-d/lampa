@@ -16,7 +16,7 @@ const validSeed=s=>s && ['movie','tv'].includes(s.type) && /^[1-9]\d{0,11}$/.tes
 export function createRecommendationService({db,repository,jobs,settings,provider,providerRevision=()=>null,transportFactory,clock=()=>new Date()}) {
  const diagnostics=createDiagnostics(db,{clock});
  for(const row of db.prepare("SELECT e.id,e.event_json FROM diagnostic_ai_events e JOIN diagnostic_ai_replays r ON r.event_id=e.id WHERE e.status='running'").all()){const event=JSON.parse(row.event_json);event.status='failed';event.errorCode='INTERRUPTED';db.prepare("UPDATE diagnostic_ai_events SET status='failed',event_json=? WHERE id=?").run(JSON.stringify(event),row.id);}
- const audit=e=>{try{return diagnostics.addAI(e);}catch{}};
+ const audit=e=>{try{return diagnostics.addAI(e);}catch{try{const {citationSummary,usage,...rest}=e;return diagnostics.addAI(rest);}catch{}}};
  const profile=deviceId=>repository.profileForDevice(deviceId);
  const signals=p=>repository.getProfileSignals(p);
  function cacheKey(p,seed){const s=settings.read();return digest(JSON.stringify([p,keyForSeed(seed),signals(p).digest,s.revision,s.document.locale,s.document.model,providerRevision(),'web-research-v3']));}

@@ -47,3 +47,10 @@ test('серверная выгрузка видна в панели', async ({ 
   await page.getByRole('button',{name:`Открыть ${report.id}`}).click();
   await expect(page.locator('#diagnosticsClientDetail')).toContainText('real diagnostic');
 });
+test('кнопка очищает журнал ИИ', async ({ page }) => {
+  page.once('dialog', dialog => dialog.accept());
+  await page.goto(base + '/admin/');
+  await page.getByRole('button', { name: 'Очистить журнал ИИ' }).click();
+  await expect(page.locator('#diagnosticsAiStatus')).toContainText('Журнал очищен');
+  await expect(page.locator('#diagnosticsAiRows')).toBeEmpty();
+});

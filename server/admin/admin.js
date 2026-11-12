@@ -457,20 +457,44 @@ loadOrigins();
 
 let aiRevision = 0;
 let aiPromptsAvailable = false, aiDefaultPrompts = {};
-function fillModelList(models) {
-  const list = $('aiModelList');
-  list.replaceChildren();
+function appendModelOptions(select, models) {
   if (!Array.isArray(models)) return;
   for (const model of models) {
+    if (typeof model !== 'string' || !model) continue;
     const option = document.createElement('option');
     option.value = model;
-    list.appendChild(option);
+    option.textContent = model;
+    select.appendChild(option);
   }
+}
+function syncModelCustom() {
+  const custom = $('aiModel').value === '__custom__';
+  $('aiModelCustomLabel').hidden = !custom;
+}
+function chosenModel() {
+  return $('aiModel').value === '__custom__' ? $('aiModelCustom').value.trim() : $('aiModel').value.trim();
+}
+function fillSettingsModels(models, selected) {
+  const select = $('aiModel');
+  select.replaceChildren();
+  appendModelOptions(select, models);
+  if (selected && ![...select.options].some(option => option.value === selected)) {
+    const option = document.createElement('option');
+    option.value = selected;
+    option.textContent = selected;
+    select.insertBefore(option, select.firstChild);
+  }
+  const custom = document.createElement('option');
+  custom.value = '__custom__';
+  custom.textContent = 'Другая…';
+  select.appendChild(custom);
+  select.value = selected && [...select.options].some(option => option.value === selected) ? selected : (select.options[0]?.value || '__custom__');
+  $('aiModelCustom').value = '';
+  syncModelCustom();
 }
 async function loadAI() {
   try { const [result, models] = await Promise.all([api('/v1/admin/ai/config'), api('/v1/admin/ai/models').catch(() => null)]); aiRevision=result.revision;
-    fillModelList(models?.models);
-    const d=result.document; $('aiEnabled').checked=d.enabled; $('aiModel').value=d.model;
+    const d=result.document; $('aiEnabled').checked=d.enabled; fillSettingsModels(models?.models, d.model);
     $('aiLocale').value=d.locale; $('aiSchedule').value=d.schedule;
     $('aiProfileLimit').value=d.limits.profileAttempts; $('aiServerLimit').value=d.limits.serverAttempts;
     $('aiHomeLimit').value=d.limits.manualHome; $('aiSimilarLimit').value=d.limits.similar;
@@ -487,7 +511,9 @@ async function loadAI() {
 }
 $('aiForm').addEventListener('submit',async event=>{
   event.preventDefault();
-  const document={schemaVersion:1,enabled:$('aiEnabled').checked,model:$('aiModel').value.trim(),locale:$('aiLocale').value,timezone:'Europe/Moscow',schedule:$('aiSchedule').value,limits:{profileAttempts:Number($('aiProfileLimit').value),serverAttempts:Number($('aiServerLimit').value),manualHome:Number($('aiHomeLimit').value),similar:Number($('aiSimilarLimit').value)}};
+  const model = chosenModel();
+  if (!model) { $('aiStatus').textContent = 'Укажите идентификатор модели.'; return; }
+  const document={schemaVersion:1,enabled:$('aiEnabled').checked,model,locale:$('aiLocale').value,timezone:'Europe/Moscow',schedule:$('aiSchedule').value,limits:{profileAttempts:Number($('aiProfileLimit').value),serverAttempts:Number($('aiServerLimit').value),manualHome:Number($('aiHomeLimit').value),similar:Number($('aiSimilarLimit').value)}};
   if (aiPromptsAvailable) {
     document.prompts = {home:$('aiHomePrompt').value, similar:$('aiSimilarPrompt').value};
     if (!document.prompts.home.trim() || !document.prompts.similar.trim()) { $('aiStatus').textContent='Промпты не могут быть пустыми.'; return; }
@@ -497,6 +523,7 @@ $('aiForm').addEventListener('submit',async event=>{
   catch(e){$('aiStatus').textContent=e.code==='REVISION_CONFLICT'?'Настройки изменены в другом окне; ваши изменения остались в форме.':e.message;}
 });
 loadAI();
+$('aiModel').addEventListener('change', syncModelCustom);
 
 for (const [kind, field, reset] of [['home', 'aiHomePrompt', 'aiResetHomePrompt'], ['similar', 'aiSimilarPrompt', 'aiResetSimilarPrompt']]) {
   $(reset).addEventListener('click', () => {
@@ -521,9 +548,15 @@ async function loadDiagnosticAi(cursor = null) {
   $('diagnosticsAiStatus').textContent = 'Загрузка…'; $('diagnosticsAiNext').disabled = true;
   try {
     const params = new URLSearchParams({limit: '50'}); if (cursor) params.set('beforeId', cursor);
-    const [list, summary] = await Promise.all([api(`${diagnosticsBase}/ai?${params}`), api(`${diagnosticsBase}/ai/summary`)]);
-    $('diagnosticsSummary').replaceChildren(); $('diagnosticsAiRows').replaceChildren();
-    for (const day of summary.days) diagnosticRow($('diagnosticsSummary'), [day.date, day.attempts, day.success, day.failed, diagnosticTokens(day)]);
+    const listPromise = api(`${diagnosticsBase}/ai?${params}`);
+    const summaryPromise = cursor ? null : api(`${diagnosticsBase}/ai/summary`);
+    const list = await listPromise;
+    $('diagnosticsAiRows').replaceChildren();
+    if (summaryPromise) {
+      const summary = await summaryPromise;
+      $('diagnosticsSummary').replaceChildren();
+      for (const day of summary.days) diagnosticRow($('diagnosticsSummary'), [day.date, day.attempts, day.success, day.failed, diagnosticTokens(day)]);
+    }
     for (const item of list.items) {
       const row = diagnosticRow($('diagnosticsAiRows'), [diagnosticTime(item.time), `${diagnosticValue(item.profileId)} / ${diagnosticValue(item.deviceId)}`, `${diagnosticValue(item.kind)} / ${diagnosticValue(item.model)}`, diagnosticValue(item.status), diagnosticTokens(item), item.latencyMs == null ? 'Неизвестно' : `${item.latencyMs} мс`, `Событие: ${diagnosticValue(item.id)}; задача: ${diagnosticValue(item.jobId)}; запрос: ${diagnosticValue(item.providerRequestId)}; ошибка: ${diagnosticValue(item.errorCode)}`]);
       const cell = document.createElement('td'), button = document.createElement('button');
@@ -531,7 +564,7 @@ async function loadDiagnosticAi(cursor = null) {
     }
     diagnosticAiCursor = list.nextCursor; $('diagnosticsAiNext').disabled = !diagnosticAiCursor;
     $('diagnosticsAiStatus').textContent = list.items.length ? 'Журнал загружен.' : 'Событий нет.';
-  } catch { $('diagnosticsAiStatus').textContent = 'Не удалось загрузить журнал ИИ. Попробуйте обновить.'; }
+  } catch (e) { $('diagnosticsAiStatus').textContent = `Не удалось загрузить журнал ИИ. ${e.message || 'Попробуйте обновить.'}`; }
 }
 let aiTraceTrigger = null;
 $("aiTraceBack").addEventListener("click", () => { $("aiTracePanel").hidden = true; ++aiTraceSelection; ++aiComparisonSelection; aiTraceTrigger?.focus(); });
@@ -683,9 +716,7 @@ async function openAiTrace(id) {
     updateTraceControls();
     const models = await modelsPromise;
     if (selection !== aiTraceSelection) return;
-    if (Array.isArray(models?.models)) for (const model of models.models) {
-      const option = document.createElement('option'); option.value = model; option.textContent = model; $('aiTraceModel').appendChild(option);
-    }
+    appendModelOptions($('aiTraceModel'), models?.models);
     if (!models || !$('aiTraceModel').options.length) $('aiTraceStatus').textContent += ' Не удалось загрузить модели для сравнения.';
     updateTraceControls();
   } catch {
@@ -776,6 +807,17 @@ async function loadDiagnosticDetail(id) {
 }
 $('diagnosticsAiRefresh').addEventListener('click', () => loadDiagnosticAi());
 $('diagnosticsAiNext').addEventListener('click', () => loadDiagnosticAi(diagnosticAiCursor));
+$('diagnosticsAiClear').addEventListener('click', async () => {
+  if (!confirm('Очистить журнал ИИ? События, трассы и сравнения будут удалены. Квоты и настройки сохранятся.')) return;
+  try {
+    await api(`${diagnosticsBase}/ai`, {method: 'DELETE'});
+    $('aiTracePanel').hidden = true;
+    await loadDiagnosticAi();
+    $('diagnosticsAiStatus').textContent = 'Журнал очищен.';
+  } catch (e) {
+    $('diagnosticsAiStatus').textContent = `Не удалось очистить журнал. ${e.message || 'Попробуйте ещё раз.'}`;
+  }
+});
 $('diagnosticsClientRefresh').addEventListener('click', () => loadDiagnosticClients());
 $('diagnosticsClientNext').addEventListener('click', () => loadDiagnosticClients(diagnosticClientCursor));
 
