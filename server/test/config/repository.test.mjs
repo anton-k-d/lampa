@@ -28,7 +28,7 @@ test('persists revisions, deduplicates retries and migrates on reopen', t => {
 });
 
 test('rejects future schema without changing it', t => {
-  const path = setup(t); const db = openConfigDatabase(path); db.exec('PRAGMA user_version=6'); db.close();
+  const path = setup(t); const db = openConfigDatabase(path); db.exec('PRAGMA user_version=7'); db.close();
   assert.throws(() => openConfigDatabase(path), code('UNSUPPORTED_DB_VERSION'));
 });
 

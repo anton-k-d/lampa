@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lampa · Панель управления</title>
+    <link rel="stylesheet" href="admin.css" />
+    <script type="module" src="logs.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">LAMPA · ДОМАШНИЙ СЕРВЕР</p>
+        <h1>Панель управления</h1>
+        <p>Выгрузки журнала с телевизоров.</p>
+      </header>
+      <nav aria-label="Разделы панели"><a href="./">Настройки</a><a href="ai.html">ИИ</a><a href="profiles.html">Профили</a><a href="journal.html">Журнал ИИ</a><a href="logs.html" aria-current="page">Логи клиентов</a></nav>
+      <div id="status" role="status" aria-live="polite"></div>
+      <section id="clientJournal"><h2>Выгрузки журнала клиента</h2><p class="hint">Время получения по Москве. Показаны очищенные сервером данные.</p><button id="diagnosticsClientRefresh" type="button">Обновить выгрузки</button><p id="diagnosticsClientStatus" role="status"></p><div class="table-scroll"><table><thead><tr><th>Устройство / ID</th><th>Получено (Москва)</th><th>Приложение / платформа</th><th>Записи</th><th>Обрезано</th><th></th></tr></thead><tbody id="diagnosticsClientRows"></tbody></table></div><button id="diagnosticsClientNext" type="button" disabled>Следующая страница выгрузок</button><p id="diagnosticsDetailStatus" role="status"></p><button id="diagnosticsDownload" type="button" disabled>Скачать JSON</button><pre id="diagnosticsClientDetail"></pre></section>
+    </main>
+  </body>
+</html>

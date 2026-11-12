@@ -12,7 +12,7 @@ import { createDiagnostics } from '../diagnostics/store.mjs';
 import { failureFor } from '../recommendations/failures.mjs';
 
 const limit = 262144;
-const statusCodes = {BAD_REQUEST:400, INVALID_CONFIG:422, UNSUPPORTED_CAPABILITY:422, REVISION_CONFLICT:412, PRECONDITION_REQUIRED:428, IDEMPOTENCY_MISMATCH:409, NOT_FOUND:404, BUSY:503, TOO_LARGE:413, FORBIDDEN:403, QUOTA_EXCEEDED:429};
+const statusCodes = {BAD_REQUEST:400, INVALID_CONFIG:422, UNSUPPORTED_CAPABILITY:422, REVISION_CONFLICT:412, PRECONDITION_REQUIRED:428, IDEMPOTENCY_MISMATCH:409, NOT_FOUND:404, BUSY:503, TOO_LARGE:413, FORBIDDEN:403, QUOTA_EXCEEDED:429, METADATA_NOT_CONFIGURED:422};
 function hostAllowed(header, allowedHosts) {
   if (typeof header !== 'string' || !header || /[\s/@,\\]/.test(header)) return false;
   try {
@@ -36,7 +36,7 @@ async function readBody(req, maxBytes = limit) {
 function safeIssues(issues) {
   return issues?.map(issue => ({path:safeIssuePath(issue),code:issue.code,message:issue.message}));
 }
-export function createHomeServer({repository, service, runtimeStore, adminRoot, clientRoot, allowedHosts = ['127.0.0.1','localhost'], recommendationRepository, recommendationService, aiSettings, db}) {
+export function createHomeServer({repository, service, runtimeStore, adminRoot, clientRoot, allowedHosts = ['127.0.0.1','localhost'], recommendationRepository, recommendationService, aiSettings, db, metadataProvider}) {
   const diagnostics = db ? createDiagnostics(db) : null;
   const hosts = new Set([...allowedHosts].map(host => host.toLowerCase()));
   const server = createServer(async (req, res) => {
@@ -67,7 +67,7 @@ export function createHomeServer({repository, service, runtimeStore, adminRoot, 
         return;
       }
       if ((rawPath.startsWith('/admin/') && await serveStatic(req,res,rawPath,adminRoot,'/admin/')) || (rawPath.startsWith('/app/') && await serveStatic(req,res,rawPath,clientRoot,'/app/'))) return;
-      const result = (diagnostics && await diagnosticRoute(req,rawPath,url,diagnostics,()=>readBody(req),recommendationService)) || (recommendationService && await recommendationRoute(req,rawPath,url,{recommendationRepository,recommendationService,aiSettings},()=>readBody(req, rawPath.endsWith('/signals') ? 192 * 1024 : limit))) || (aiSettings && await aiAdminRoute(req,rawPath,{aiSettings,db,recommendationService},()=>readBody(req))) || await configRoute(req, rawPath, url, {repository,service,runtimeStore}, () => readBody(req));
+      const result = (diagnostics && await diagnosticRoute(req,rawPath,url,diagnostics,()=>readBody(req),recommendationService)) || (recommendationService && await recommendationRoute(req,rawPath,url,{recommendationRepository,recommendationService,aiSettings},()=>readBody(req, rawPath.endsWith('/signals') ? 192 * 1024 : limit))) || (aiSettings && await aiAdminRoute(req,rawPath,{aiSettings,db,recommendationService,recommendationRepository,metadataProvider},()=>readBody(req),url)) || await configRoute(req, rawPath, url, {repository,service,runtimeStore}, () => readBody(req));
       if (!result) throw new ConfigError('NOT_FOUND','Resource not found');
       const headers = {'cache-control':'no-store', 'x-content-type-options':'nosniff'};
       if (result.etag) headers.etag = result.etag;

@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lampa · Панель управления</title>
+    <link rel="stylesheet" href="admin.css" />
+    <script type="module" src="journal.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">LAMPA · ДОМАШНИЙ СЕРВЕР</p>
+        <h1>Панель управления</h1>
+        <p>Журнал вызовов модели и сравнение ответов.</p>
+      </header>
+      <nav aria-label="Разделы панели"><a href="./">Настройки</a><a href="ai.html">ИИ</a><a href="profiles.html">Профили</a><a href="journal.html" aria-current="page">Журнал ИИ</a><a href="logs.html">Логи клиентов</a></nav>
+      <div id="status" role="status" aria-live="polite"></div>
+      <section id="aiJournal"><h2>Журнал использования ИИ</h2><p class="hint">Время по Москве. Успехи и ошибки относятся к вызовам модели; результат подборки указан в подробностях. Известное использование токенов не включает неизвестные значения; стоимость не рассчитывается.</p><button id="diagnosticsAiRefresh" type="button">Обновить журнал ИИ</button><button id="diagnosticsAiClear" type="button">Очистить журнал ИИ</button><p id="diagnosticsAiStatus" role="status"></p><h3>По дням (Москва)</h3><div class="table-scroll"><table><thead><tr><th>День</th><th>Вызовы</th><th>Успехи</th><th>Ошибки</th><th>Известное использование токенов: вход / выход / всего / кэш</th></tr></thead><tbody id="diagnosticsSummary"></tbody></table></div><h3>События</h3><div class="table-scroll"><table><thead><tr><th>Время (Москва)</th><th>Профиль / устройство</th><th>Тип / модель</th><th>Статус модели</th><th>Токены: вход / выход / всего / кэш</th><th>Длительность</th><th>Ошибка и ID</th><th>Действие</th></tr></thead><tbody id="diagnosticsAiRows"></tbody></table></div><button id="diagnosticsAiNext" type="button" disabled>Следующая страница журнала ИИ</button>
+      <div id="aiTracePanel" tabindex="-1" hidden>
+      <div class="panel-heading"><div><p class="eyebrow">РАБОЧАЯ ОБЛАСТЬ</p><h3>Сравнение ответов ИИ</h3></div><button id="aiTraceBack" type="button">К событию</button></div>
+      <p id="aiTraceStatus" role="status">Выберите событие.</p><p id="aiTraceCopyStatus" role="status"></p>
+      <details><summary>Метаданные события</summary><p id="aiTraceMeta"></p></details>
+      <details><summary>Исходный запрос</summary><pre id="aiTraceRequest"></pre></details>
+      <div class="comparison-toolbar"><label>Модель для сравнения<select id="aiTraceModel" disabled></select></label><button id="aiTraceReplay" type="button" disabled>Платный запуск сравнения</button><span class="hint">Повторяет исходный запрос. Расходует токены API.</span></div>
+      <div class="ai-view-tabs" role="tablist" aria-label="Вид результата"><button id="aiViewCards" class="ai-view-tab" type="button" role="tab">Карточки</button><button id="aiViewRaw" class="ai-view-tab" type="button" role="tab">RAW</button><label>Статус <select id="aiResultFilter"><option value="all">Все</option><option value="included">Включены / найдены</option><option value="excluded">Исключены</option><option value="unresolved">Не найдены</option></select></label></div>
+      <div class="trace-columns"><article><h4>Оригинальный ответ</h4><div id="aiOriginalCards" class="ai-result-grid"></div><button id="aiOriginalPreview" type="button" hidden>Восстановить карточки из RAW через TMDB</button><div id="aiOriginalRaw"><button id="aiTraceCopy" type="button" disabled>Копировать ответ</button><pre id="aiTraceResponse"></pre></div></article><article><h4>Ответ выбранной модели</h4><label class="ai-history-select">История сравнений <select id="aiHistorySelect"><option value="">Выберите сравнение</option></select></label><button id="aiHistoryMore" type="button" hidden>Ещё сравнения</button><details><summary>Метаданные сравнения</summary><p id="aiComparisonMeta"></p></details><div id="aiComparisonCards" class="ai-result-grid"></div><button id="aiComparisonPreview" type="button" hidden>Восстановить карточки сравнения через TMDB</button><div id="aiComparisonRaw"><button id="aiComparisonCopy" type="button" disabled>Копировать ответ сравнения</button><pre id="aiComparisonResponse"></pre></div></article></div></div></section>
+    </main>
+  </body>
+</html>

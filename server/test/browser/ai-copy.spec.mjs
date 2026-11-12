@@ -24,7 +24,7 @@ async function setup(page) {
     const id = u.pathname.split('/').pop();
     return route.fulfill({json:detail(id, id === 'empty' ? null : id === 'comparison' ? comparison : raw)});
   });
-  await page.goto(base + '/admin/'); await page.locator('#diagnosticsAiRefresh').click(); return posts;
+  await page.goto(base + '/admin/journal.html'); await page.locator('#diagnosticsAiRefresh').click(); return posts;
 }
 test('copies exact original and comparison response without paid requests on copy', async ({page}) => {
   await page.addInitScript(() => { window.copied = []; Object.defineProperty(navigator, 'clipboard', {value:{writeText: async text => window.copied.push(text)}}); });

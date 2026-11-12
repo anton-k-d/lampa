@@ -18,13 +18,14 @@ test('журналы показывают неизвестные токены, �
     if (u.pathname.endsWith('/client-logs')) return route.fulfill({json:{items:[{id:'report-1',deviceId:'tv',receivedAt:'2026-01-01T00:00:00Z',entryCount:1,truncated:true,client:{appVersion:'1',platform:'web'}}],nextCursor:null}});
     return route.fulfill({json:{id:'report-1',entries:[{message:'<img src=x onerror=alert(1)>'}]}});
   });
-  await page.goto(base + '/admin/');
+  await page.goto(base + '/admin/journal.html');
   await page.getByRole('button',{name:'Обновить журнал ИИ'}).click();
   await expect(page.locator('#diagnosticsSummary')).toContainText('Неизвестно');
   await expect(page.locator('#diagnosticsAiRows')).toContainText('event-1');
   await expect(page.locator('#diagnosticsAiRows')).toContainText('ERR');
   await page.getByRole('button',{name:'Следующая страница журнала ИИ'}).click();
   await expect(page.getByRole('button',{name:'Следующая страница журнала ИИ'})).toBeDisabled();
+  await page.goto(base + '/admin/logs.html');
   await page.getByRole('button',{name:'Обновить выгрузки'}).click();
   await page.getByRole('button',{name:'Открыть report-1'}).click();
   await expect(page.locator('#diagnosticsClientDetail')).toContainText('<img src=x onerror=alert(1)>');
@@ -39,9 +40,10 @@ test('серверная выгрузка видна в панели', async ({ 
   const response = await page.request.post(base + '/v1/devices/real-tv/logs', {data:{schemaVersion:1,entries:[{level:'info',message:'real diagnostic'}],client:{appVersion:'1.2',platform:'web'},truncated:false}});
   expect(response.status()).toBe(201);
   const report = await response.json();
-  await page.goto(base + '/admin/');
+  await page.goto(base + '/admin/journal.html');
   await page.getByRole('button',{name:'Обновить журнал ИИ'}).click();
   await expect(page.locator('#diagnosticsAiStatus')).toContainText('Событий нет');
+  await page.goto(base + '/admin/logs.html');
   await page.getByRole('button',{name:'Обновить выгрузки'}).click();
   await expect(page.locator('#diagnosticsClientRows')).toContainText('real-tv');
   await page.getByRole('button',{name:`Открыть ${report.id}`}).click();
@@ -49,7 +51,7 @@ test('серверная выгрузка видна в панели', async ({ 
 });
 test('кнопка очищает журнал ИИ', async ({ page }) => {
   page.once('dialog', dialog => dialog.accept());
-  await page.goto(base + '/admin/');
+  await page.goto(base + '/admin/journal.html');
   await page.getByRole('button', { name: 'Очистить журнал ИИ' }).click();
   await expect(page.locator('#diagnosticsAiStatus')).toContainText('Журнал очищен');
   await expect(page.locator('#diagnosticsAiRows')).toBeEmpty();

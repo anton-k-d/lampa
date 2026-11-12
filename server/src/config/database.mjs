@@ -21,7 +21,7 @@ export function openConfigDatabase(path) {
     db = new DatabaseSync(path);
     db.exec('PRAGMA busy_timeout=5000; PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL');
     const version = db.prepare('PRAGMA user_version').get().user_version;
-    if (version > 5) throw new ConfigError('UNSUPPORTED_DB_VERSION', 'Unsupported database version');
+    if (version > 6) throw new ConfigError('UNSUPPORTED_DB_VERSION', 'Unsupported database version');
     db.exec('PRAGMA journal_mode=WAL');
     db.exec('BEGIN IMMEDIATE');
     try {
@@ -52,8 +52,14 @@ export function openConfigDatabase(path) {
         CREATE TABLE IF NOT EXISTS diagnostic_ai_events (id TEXT PRIMARY KEY, time TEXT NOT NULL, kind TEXT NOT NULL, status TEXT NOT NULL, event_json TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS diagnostic_ai_traces (event_id TEXT PRIMARY KEY, time TEXT NOT NULL, snapshot_json TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS diagnostic_ai_parents (event_id TEXT PRIMARY KEY, parent_event_id TEXT NOT NULL);
-        CREATE TABLE IF NOT EXISTS diagnostic_ai_replays (mutation_id TEXT PRIMARY KEY, parent_event_id TEXT NOT NULL, model TEXT NOT NULL, event_id TEXT NOT NULL);
-        PRAGMA user_version=5`);
+        CREATE TABLE IF NOT EXISTS diagnostic_ai_replays (mutation_id TEXT PRIMARY KEY, parent_event_id TEXT NOT NULL, model TEXT NOT NULL, event_id TEXT NOT NULL);`);
+      const profileColumns = db.prepare('PRAGMA table_info(ai_profiles)').all();
+      if (!profileColumns.some(column => column.name === 'name')) db.exec("ALTER TABLE ai_profiles ADD COLUMN name TEXT NOT NULL DEFAULT ''");
+      db.exec("UPDATE ai_profiles SET name='Общий' WHERE id='home' AND name=''");
+      db.exec(`CREATE TABLE IF NOT EXISTS ai_profile_picks (
+        profile_id TEXT NOT NULL REFERENCES ai_profiles(id), key TEXT NOT NULL, title TEXT NOT NULL,
+        year INTEGER, media_type TEXT NOT NULL, added_at TEXT NOT NULL, PRIMARY KEY(profile_id, key));
+        PRAGMA user_version=6`);
       db.exec('COMMIT');
     } catch (error) { db.exec('ROLLBACK'); throw error; }
     return db;

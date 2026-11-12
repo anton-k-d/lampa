@@ -46,6 +46,15 @@ export function createMetadataCatalog({baseUrl,fetchImpl=fetch,now=Date.now,cach
     const data=await get(path,{language:locale,page},signal);const cards=(Array.isArray(data.results)?data.results:[]).map(x=>normalizeCard(x,type)).filter(Boolean);save(cacheKey,cards);return cards;
   }
   async function hydrateCards(keys,{locale='en-US',signal}={}) {return (await Promise.all(keys.map(async key=>{const m=KEY.exec(key);if(!m)return null;const cacheKey=JSON.stringify([key,locale,'credits']);const hit=cache.get(cacheKey);if(hit&&hit.until>now())return hit.value;const raw=await get(`/3/${m[1]}/${m[2]}`,{language:locale,append_to_response:'credits'},signal);const card=normalizeCard({...raw,genre_ids:raw.genres?.map(x=>x.id)},m[1]);if(card){Object.assign(card,researchContext(raw));save(cacheKey,card);}return card;}))).filter(Boolean);}
+  async function search({query,type='movie',locale='ru-RU',signal}={}) {
+    const text=typeof query==='string'?query.trim().slice(0,80):'';
+    if(!['movie','tv'].includes(type)||!text)throw Error('invalid metadata request');
+    const path=`/3/search/${type}`;
+    const cacheKey=JSON.stringify([path,text,locale]);const hit=cache.get(cacheKey);if(hit&&hit.until>now())return hit.value;
+    const data=await get(path,{query:text,language:locale,page:1,include_adult:false},signal);
+    const cards=(Array.isArray(data.results)?data.results:[]).map(item=>normalizeCard(item,type)).filter(Boolean);
+    save(cacheKey,cards,21600000);return cards;
+  }
   async function resolveTitles(proposals,{locale='ru-RU',signal}={}) {
     if(!Array.isArray(proposals)||proposals.length>RECOMMENDATION_TARGET)throw Error('invalid proposals');
     if(signal?.aborted)throw signal.reason;
@@ -87,5 +96,5 @@ export function createMetadataCatalog({baseUrl,fetchImpl=fetch,now=Date.now,cach
     } finally {clearTimeout(timer);signal?.removeEventListener('abort',externalAbort);}
   }
   function imageUrl(path){if(typeof path!=='string'||!/^\/[A-Za-z0-9_-]+\.(?:jpg|jpeg|png|webp)$/i.test(path))return null;try{const u=new URL(base);if(!['http:','https:'].includes(u.protocol)||u.username||u.password)return null;return base+'/image/t/p/w342'+path;}catch{return null;}}
-  return {getList,hydrateCards,resolveTitles,imageUrl};
+  return {getList,hydrateCards,search,resolveTitles,imageUrl};
 }

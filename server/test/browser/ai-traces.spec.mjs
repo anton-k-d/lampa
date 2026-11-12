@@ -21,7 +21,7 @@ async function setup(page, handler) {
     if (u.pathname.endsWith('/ai')) return route.fulfill({json:{items:[event('one'),event('old')],nextCursor:null}});
     return handler(route, u);
   });
-  await page.goto(base + '/admin/');
+  await page.goto(base + '/admin/journal.html');
   await page.locator('#diagnosticsAiRefresh').click();
 }
 test('raw trace is safe and comparison runs only on explicit click, with stable retry key', async ({page}) => {

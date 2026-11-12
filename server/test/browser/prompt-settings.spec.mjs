@@ -21,7 +21,7 @@ test('промпты сохраняются и сбрасываются толь
   const initial = await get();
   let paidRequests = 0;
   page.on('request', request => { if (request.url().includes('/v1/admin/ai/test') || request.url().includes('/v1/ai/')) paidRequests++; });
-  await page.goto(base + '/admin/');
+  await page.goto(base + '/admin/ai.html');
   const home = page.getByLabel('Промпт для главной');
   const similar = page.getByLabel('Промпт для похожих подборок');
   await expect(home).toHaveValue(initial.document.prompts?.home || /.+/);
@@ -55,7 +55,7 @@ test('старый ответ без промптов не отправляет 
     delete body.defaultPrompts;
     await route.fulfill({ response, json: body });
   });
-  await page.goto(base + '/admin/');
+  await page.goto(base + '/admin/ai.html');
   await expect(page.locator('#aiKeyStatus')).not.toBeEmpty();
   await expect(page.getByRole('button', { name: 'Восстановить промпт главной' })).toBeDisabled();
   const request = page.waitForRequest(r => r.url().endsWith('/v1/admin/ai/config') && r.method() === 'PUT');
@@ -63,7 +63,7 @@ test('старый ответ без промптов не отправляет 
   expect((await request).postDataJSON().document).not.toHaveProperty('prompts');
 });
 test('модель можно выбрать из списка или вписать вручную', async ({ page }) => {
-  await page.goto(base + '/admin/');
+  await page.goto(base + '/admin/ai.html');
   const model = page.locator('#aiModel');
   await expect(model.locator('option[value="gpt-4.1-mini"]')).toHaveCount(1);
   await expect(page.locator('#aiModelCustomLabel')).toBeHidden();
@@ -80,7 +80,7 @@ test('модель можно выбрать из списка или вписа
   await expect(model).toHaveValue('gpt-5');
 });
 test('справка описывает поиск и сигналы для главной', async ({ page }) => {
-  await page.goto(base + '/admin/');
+  await page.goto(base + '/admin/ai.html');
   const form = page.locator('#aiForm');
   await expect(form).toContainText('лайки');
   await expect(form).toContainText('web_search');

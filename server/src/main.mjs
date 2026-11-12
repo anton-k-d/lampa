@@ -31,7 +31,7 @@ try {
   const recommendationService = createRecommendationService({db,repository:recommendationRepository,jobs:createJobs(db),settings:aiSettings,providerRevision:()=>repository.getHead('global')?.revision??0,provider:metadataProvider,transportFactory:apiKey=>createOpenAITransport({apiKey})});
   const scheduler=createScheduler({db,settings:aiSettings,service:recommendationService});
   const server = createHomeServer({
-    db, aiSettings, recommendationRepository, recommendationService,
+    db, aiSettings, recommendationRepository, recommendationService, metadataProvider,
     repository,
     service,
     runtimeStore,

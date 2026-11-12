@@ -88,6 +88,17 @@ test('liked titles take precedence over newer planned titles',async()=>{
  assert.equal(result.seeds.length,8);
 });
 
+test('search uses the adult-filtered title endpoint and caches it',async()=>{
+ const calls=[];
+ const catalog=createMetadataCatalog({baseUrl:'https://proxy.test',fetchImpl:async url=>{calls.push(String(url));return new Response(JSON.stringify({results:[{id:8,title:'Query',release_date:'2024-01-01',adult:false}]}));}});
+ const first=await catalog.search({query:' Query ',type:'movie',locale:'ru-RU'});
+ await catalog.search({query:'Query',type:'movie',locale:'ru-RU'});
+ assert.equal(calls.length,1);
+ assert.match(calls[0],/\/3\/search\/movie\?/);
+ assert.match(calls[0],/include_adult=false/);
+ assert.equal(first[0].key,'tmdb:movie:8');
+});
+
 test('abandoned likes are seeds only when explicitly requested',async()=>{
  const profile={records:[{key:'tmdb:movie:1',signals:['abandoned','liked'],rank:0}]};
  const provider={hydrateCards:async keys=>keys.map(key=>({key})),getList:async()=>[]};

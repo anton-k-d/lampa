@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Lampa · Панель управления</title>
+    <link rel="stylesheet" href="admin.css" />
+    <script type="module" src="profiles.js"></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">LAMPA · ДОМАШНИЙ СЕРВЕР</p>
+        <h1>Панель управления</h1>
+        <p>Отдельные подборки для членов семьи и выбор фильмов для вкуса профиля.</p>
+      </header>
+      <nav aria-label="Разделы панели"><a href="./">Настройки</a><a href="ai.html">ИИ</a><a href="profiles.html" aria-current="page">Профили</a><a href="journal.html">Журнал ИИ</a><a href="logs.html">Логи клиентов</a></nav>
+      <div id="status" role="status" aria-live="polite"></div>
+      <section id="profiles">
+        <h2>Профили</h2>
+        <p class="hint">У каждого профиля своя ИИ-подборка. Детский телевизор привяжите к одному общему профилю.</p>
+        <div class="inline">
+          <label>Имя<input id="profileName" maxlength="80" autocomplete="off" /></label>
+          <button id="profileCreate" type="button">Создать профиль</button>
+        </div>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>Имя</th><th>Устройства</th><th>В опросе</th><th>Последняя подборка</th><th></th></tr></thead>
+            <tbody id="profileRows"></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h2>Телевизоры</h2>
+        <p class="hint">ID устройства виден на телевизоре в настройках Lampa Home. После первого запуска оно появится в этом списке.</p>
+        <p id="devicesEmpty" class="hint" hidden>Телевизоры ещё не подключались.</p>
+        <div class="table-scroll">
+          <table>
+            <thead><tr><th>ID</th><th>Синхронизация</th><th>Записей</th><th>Профиль</th></tr></thead>
+            <tbody id="deviceRows"></tbody>
+          </table>
+        </div>
+      </section>
+      <section>
+        <h2>Опрос</h2>
+        <p class="hint">Отметьте фильмы и сериалы, которые нравятся этому профилю. После сохранения они станут вкусом подборки, даже если на телевизоре нет лайков. Генерация расходует одно ручное обновление главной из дневного лимита.</p>
+        <label>Профиль<select id="surveyProfile"></select></label>
+        <div class="ai-view-tabs" role="tablist" aria-label="Каталог опроса">
+          <button id="surveyTrending" class="ai-view-tab is-active" type="button">В тренде</button>
+          <button id="surveyMovies" class="ai-view-tab" type="button">Фильмы</button>
+          <button id="surveyShows" class="ai-view-tab" type="button">Сериалы</button>
+        </div>
+        <div class="inline">
+          <label>Поиск<input id="surveyQuery" autocomplete="off" /></label>
+          <button id="surveySearch" type="button">Найти</button>
+        </div>
+        <p id="surveyHint" class="hint" hidden></p>
+        <p id="surveySelected"></p>
+        <div id="surveyGrid" class="profile-grid"></div>
+        <div class="actions">
+          <button id="surveySave" type="button">Сохранить выбор</button>
+          <button id="surveyRefresh" type="button">Сгенерировать подборку</button>
+        </div>
+        <p id="surveyStatus" role="status"></p>
+      </section>
+    </main>
+  </body>
+</html>

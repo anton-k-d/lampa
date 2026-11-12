@@ -65,7 +65,7 @@ nav a {
   border:1px solid var(--line);
   border-radius:8px
 }
-nav a:first-child {
+nav a[aria-current="page"] {
   background:var(--accent);
   color:#19240f;
   border-color:var(--accent)
@@ -460,3 +460,32 @@ nav a {
 }
 
 .ai-result-grid > .ai-result-summary, .ai-result-grid > .ai-result-empty { grid-column: 1 / -1; }
+.profile-grid {
+  display:grid;
+  grid-template-columns:repeat(auto-fill,minmax(148px,1fr));
+  gap:12px;
+  margin-top:16px
+}
+.profile-card {
+  background:#0c1018;
+  border:1px solid var(--line);
+  border-radius:10px;
+  overflow:hidden
+}
+.profile-card.is-picked { border-color:var(--accent) }
+.profile-card img, .profile-card .profile-poster {
+  width:100%;
+  aspect-ratio:2/3;
+  object-fit:cover;
+  display:block;
+  background:#0c1018
+}
+.profile-card .profile-poster {
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  color:var(--muted);
+  font-size:12px
+}
+.profile-card label { display:flex; gap:8px; align-items:flex-start; padding:8px }
+.profile-actions { display:flex; gap:8px; align-items:center }
