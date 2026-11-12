@@ -121,3 +121,27 @@
         width: 19.7em;
     }
 }
+
+.ai-home-heading{
+    display: flex;
+    align-items: center;
+    min-width: 0;
+
+    .ai-home-date{
+        flex-shrink: 0;
+    }
+}
+
+.items-line__head .ai-recommendation-status{
+    margin-left: 1.5em;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: rgba(255,255,255,0.55);
+    font-size: 1.05em;
+}
+
+body.light--version .items-line__head .ai-recommendation-status{
+    color: rgba(0,0,0,0.55);
+}
