@@ -20,11 +20,16 @@ function WebWorker(worker, nosuport){
     }
     
     this.call = function(data, call){
+        clearTimeout(timer)
+
         callback = call
 
         worker.postMessage(data)
 
         timer = setTimeout(()=>{
+            if(callback !== call) return
+
+            callback = false
             nosuport.call(data, call)
         }, 1500)
     }

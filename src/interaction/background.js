@@ -42,6 +42,27 @@ let timer
 let immed_time  = Date.now()
 let theme_color = '#000000'
 let timer_change
+let loadGen = 0
+let fadeRaf = 0
+let pendingImg = null
+
+function cancelFade(){
+    if(fadeRaf){
+        cancelAnimationFrame(fadeRaf)
+        fadeRaf = 0
+    }
+
+    clearTimeout(timer_change)
+}
+
+function cancelPendingImage(){
+    if(!pendingImg) return
+
+    pendingImg.onload = null
+    pendingImg.onerror = null
+    pendingImg.src = ''
+    pendingImg = null
+}
 
 
 /**
@@ -106,7 +127,9 @@ function bg(){
  * @param {object} item - фон
  * @param {boolean} noimage
  */
-function draw(data, item, noimage){
+function draw(data, item, noimage, gen){
+    if(gen != null && gen !== loadGen) return
+
     if(noimage) return
 
     // Для мобильных устройств делаем полный сброс canvas
@@ -122,6 +145,8 @@ function draw(data, item, noimage){
     let type    = Storage.field('background_type')
 
     blur(data, item, ()=>{
+        if(gen != null && gen !== loadGen) return
+
         if(type == 'complex' && bokeh.d){
             let bright = Color.rgbToHsl(palette.average[0],palette.average[1],palette.average[2]) 
 
@@ -181,17 +206,21 @@ function draw(data, item, noimage){
             item.canvas.addClass('visible')
         }
         else{
-            fadeTo(item)
+            fadeTo(item, gen)
         }
 
         if(!Player.opened()) theme(Storage.field('black_style') ? 'black' : 'reset')
-    })
+    }, gen)
 }
 
 /**
  * Плавный переход с двойным прогревом обоих canvas
  */
-function fadeTo(new_bg) {
+function fadeTo(new_bg, gen) {
+    if(gen != null && gen !== loadGen) return
+
+    cancelFade()
+
     const fade      = background.fade.ctx
     const old_image = background[view === 'one' ? 'two' : 'one'].canvas[0]
     const new_image = new_bg.canvas[0]
@@ -200,6 +229,8 @@ function fadeTo(new_bg) {
     const start     = Date.now()
 
     function step() {
+        if(gen != null && gen !== loadGen) return
+
         const elapsed = Date.now() - start
 
         if (elapsed < warmup) {
@@ -207,7 +238,7 @@ function fadeTo(new_bg) {
             fade.globalAlpha = 0
             fade.drawImage(old_image, 0, 0)
             fade.drawImage(new_image, 0, 0)
-            requestAnimationFrame(step)
+            fadeRaf = requestAnimationFrame(step)
             return
         }
 
@@ -224,12 +255,17 @@ function fadeTo(new_bg) {
         fade.drawImage(new_image, 0, 0)
 
         if (progress < 1) {
-            requestAnimationFrame(step)
+            fadeRaf = requestAnimationFrame(step)
         }
+        else fadeRaf = 0
     }
 
     // небольшой defer для синхронизации с рендером браузера
-    requestAnimationFrame(() => requestAnimationFrame(step))
+    fadeRaf = requestAnimationFrame(() => {
+        if(gen != null && gen !== loadGen) return
+
+        fadeRaf = requestAnimationFrame(step)
+    })
 }
 
 
@@ -239,8 +275,10 @@ function fadeTo(new_bg) {
  * @param {object} item - фон
  * @param {function} complite 
  */
-function blur(data, item, complite){
+function blur(data, item, complite, gen){
     function blured(img){
+        if(gen != null && gen !== loadGen) return
+
         let ratio = Math.max(window.screen_width / img.width, window.screen_height / img.height)
 
 		let nw = img.width * ratio,
@@ -252,6 +290,8 @@ function blur(data, item, complite){
 
             complite()
     }
+
+    if(gen != null && gen !== loadGen) return
 
     if(data.img.width > 1000) blured(data.img)
     else Color.blur(data.img, blured)
@@ -279,7 +319,7 @@ function resize(){
 
     html[0].toggleClass('hide', !Storage.field('background'))
 
-    if(loaded[src]) draw(loaded[src], background[view])
+    if(loaded[src]) draw(loaded[src], background[view], false, loadGen)
 }
 
 /**
@@ -298,19 +338,28 @@ function limit(){
 /**
  * Загрузить картинку в память
  */
-function load(){
+function load(gen){
+    if(gen !== loadGen) return
+
     if(loaded[src]){
-        draw(loaded[src],bg())
+        draw(loaded[src],bg(), false, gen)
     }
     else if(src){
         limit()
 
+        cancelPendingImage()
+
         let cache_src = src
         let colors
         let img = new Image()
+            pendingImg = img
             img.crossOrigin = "Anonymous"
 
             img.onload = function(){
+                if(pendingImg === img) pendingImg = null
+
+                if(gen !== loadGen) return
+
                 try{
                     colors = Color.get(img)
                 }
@@ -327,11 +376,15 @@ function load(){
                     palette: Color.palette(colors)
                 }
 
-                draw(loaded[cache_src],bg())
+                draw(loaded[cache_src],bg(), false, gen)
             }
 
             img.onerror = ()=>{
-                draw(false, false, true)
+                if(pendingImg === img) pendingImg = null
+
+                if(gen !== loadGen) return
+
+                draw(false, false, true, gen)
             }
 
             img.src = src
@@ -350,11 +403,17 @@ function change(url = ''){
     if(url) src = url
 
     clearTimeout(timer)
+    cancelFade()
+    cancelPendingImage()
+
+    let gen = ++loadGen
 
     timer = setTimeout(()=>{
-        if(url) load()
-        else draw(false, false, true)
-    },1000)
+        if(gen !== loadGen) return
+
+        if(url) load(gen)
+        else draw(false, false, true, gen)
+    },500)
 }
 
 /**
@@ -367,13 +426,17 @@ function immediately(url = ''){
     if(url) src = url
 
     clearTimeout(timer)
+    cancelFade()
+    cancelPendingImage()
 
     bokeh.d = false
 
     immed_time = Date.now()
 
-    if(url) load()
-    else draw(false, false, true)
+    let gen = ++loadGen
+
+    if(url) load(gen)
+    else draw(false, false, true, gen)
 }
 
 function theme(color){

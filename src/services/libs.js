@@ -19,17 +19,16 @@ function init(){
     //     include.push(Utils.protocol() + 'youtube.com/iframe_api')
     // }
 
-    // Плагины различные
+    // CUB-плагины. shots и engineer раньше игнорировали services.
     if(!window.lampa_settings.iptv && window.lampa_settings.services){
         include.push(Utils.protocol() + Manifest.cub_domain + '/plugin/sport')
         include.push(Utils.protocol() + Manifest.cub_domain + '/plugin/tsarea')
+
+        if(window.location.hostname !== 'localhost'){
+            include.push(Utils.protocol() + Manifest.cub_domain + '/plugin/shots')
+            include.push(Utils.protocol() + Manifest.cub_domain + '/plugin/engineer')
+        }
     }
-
-    // Плагин Shots
-    if(window.location.hostname !== 'localhost' && !window.lampa_settings.iptv) include.push(Utils.protocol() + Manifest.cub_domain + '/plugin/shots')
-
-    // Плагин Engineer для отладки и тестирования
-    if(window.location.hostname !== 'localhost') include.push(Utils.protocol() + Manifest.cub_domain + '/plugin/engineer')
 
     Utils.putScriptOfMirrors(include,()=>{})
 }

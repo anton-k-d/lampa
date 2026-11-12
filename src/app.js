@@ -120,7 +120,6 @@ import ServiceTorserver from './services/torrserver'
 import ServiceWatched from './services/watched'
 import ServiceSettings from './services/settings'
 import ServiceLibs from './services/libs'
-import ServiceMetric from './services/metric'
 import ServiceDeveloper from './services/developer'
 import ServiceRemoteFavorites from './services/remote_favorites'
 import ServiceDMCA from './services/dmca'
@@ -264,6 +263,15 @@ if(window.lampa_settings.iptv){
     window.lampa_settings.account_sync  = false
     window.lampa_settings.torrents_use  = false
 }
+
+// Home: без CUB-сокета, облачных сервисов, рекламы и удалённой политики.
+// Аккаунт не трогаем — синхронизация уже выключена на устройстве.
+window.lampa_settings.socket_use = false
+window.lampa_settings.services = false
+window.lampa_settings.disable_features.dmca = true
+window.lampa_settings.disable_features.blacklist = true
+window.lampa_settings.disable_features.remote_configuration = true
+window.lampa_settings.disable_features.ads = true
 
 /**
  * Делаем классы доступными в глобальной области видимости
@@ -691,8 +699,7 @@ function startApp(){
     ServiceSettings.init()
     LoadingProgress.status('ServiceSettings init')
 
-    ServiceMetric.init()
-    LoadingProgress.status('ServiceMetric init')
+    LoadingProgress.status('ServiceMetric skipped')
 
     ServiceRemoteFavorites.init()
     LoadingProgress.status('ServiceRemoteFavorites init')
