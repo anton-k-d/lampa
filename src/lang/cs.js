@@ -1412,10 +1412,7 @@ export default {
     filter_keyword_disaster: 'Katastrofa',
     filter_keyword_christmas: 'Vánoce',
 
-    dmca_title_lgbt: 'Obsah omezen',
-    dmca_descr_lgbt: 'Prohlížení není ve vašem regionu možné, protože může obsahovat LGBT obsah. Takový materiál může být v některých zemích zakázán nebo omezen.',
 
-    settings_lgbt_content_block: 'Blokovat LGBT obsah',
 
     // todo:
     adult_content_title: 'Obsah pro dospělé',

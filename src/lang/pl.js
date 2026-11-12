@@ -297,7 +297,6 @@ export default {
     settings_parental_control_disabled:  'Wyłączone',
     settings_parental_control_where:  'Gdzie wymagać kodu PIN',
 
-    settings_lgbt_content_block:  'Blokuj treści LGBT',
 
     parental_control_input_new_code:  'Wprowadź nowy kod PIN',
     parental_control_confirm_new_code:  'Powtórz kod PIN',
@@ -1375,8 +1374,6 @@ export default {
 
     dmca_title:  'Treść zablokowana',
     dmca_descr:  'Ten materiał został zablokowany na wniosek właściciela praw.',
-    dmca_title_lgbt:  'Treść ograniczona',
-    dmca_descr_lgbt:  'Niedostępne w Twoim regionie.',
 
     loading_progress_step_0:  'Przygotowanie',
     loading_progress_step_1:  'Ładowanie języków',

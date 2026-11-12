@@ -124,7 +124,6 @@ import ServiceMetric from './services/metric'
 import ServiceDeveloper from './services/developer'
 import ServiceRemoteFavorites from './services/remote_favorites'
 import ServiceDMCA from './services/dmca'
-import ServiceLGBT from './services/lgbt'
 import ServiceFPS from './services/fps'
 import ServiceEvents from './services/events'
 import ServiceChildren from './services/children'
@@ -180,8 +179,6 @@ Arrays.extend(window.lampa_settings,{
     disable_features: {
         // Блокировку карточек
         dmca: false,
-        // Блокировка ЛГБТ-контента
-        lgbt: false,
         // Реакции
         reactions: false,
         // Обсуждения
@@ -215,9 +212,6 @@ Arrays.extend(window.lampa_settings,{
 
     // Добавить список блокировки карточек, пример: [{"id":3566556,"cat":"movie"},...]
     dcma: false,
-
-    // Добавить блокировку ЛГБТ контента, пример: [{"id":3566556,"type":"movie"},...]
-    lgbt: false,
 
     // Добавлять в адресную строку название текущего экрана
     push_state: true,
@@ -714,9 +708,6 @@ function startApp(){
 
     ServiceLibs.init()
     LoadingProgress.status('ServiceLibs init')
-
-    ServiceLGBT.init()
-    LoadingProgress.status('ServiceLGBT init')
 
     ServiceChildren.init()
     LoadingProgress.status('ServiceChildren init')

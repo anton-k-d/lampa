@@ -1403,10 +1403,7 @@ export default {
     filter_keyword_disaster: 'Catastrophe', 
     filter_keyword_christmas: 'Christmas',
 
-    dmca_title_lgbt: 'Content Restricted',
-    dmca_descr_lgbt: 'Viewing is unavailable in your region as it may contain LGBT content. Such material may be prohibited or restricted in some countries.',
 
-    settings_lgbt_content_block: 'Block LGBT content',
 
     // todo:
     adult_content_title: 'Adult Content',

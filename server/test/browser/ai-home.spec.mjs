@@ -105,3 +105,22 @@ test('home quota recheck offers an explicit new generation only after eligibilit
  await row.locator('.ai-home-refresh').evaluate(el=>$(el).trigger('hover:enter'));await expect(row.locator('.ai-home-recovery')).toBeVisible();expect(posts).toBe(0);
  await row.locator('.ai-home-recovery').evaluate(el=>$(el).trigger('hover:enter'));await expect.poll(()=>posts).toBe(1);
 });
+test('listed movie card opens without a regional restriction screen',async({page})=>{
+ test.setTimeout(30000);
+ await page.route('**/*',route=>route.request().url().startsWith(base+'/')?route.continue():route.abort());
+ await page.route('**/v1/devices/*/recommendations/**',route=>{const path=new URL(route.request().url()).pathname;
+  if(path.endsWith('/capabilities'))return route.fulfill({json:{enabled:false,state:'disabled'}});
+  if(path.endsWith('/signals'))return route.fulfill({json:{acceptedSeq:1}});
+  return route.fulfill({json:{state:'ready',items:[]}});
+ });
+ await page.addInitScript(()=>{localStorage.setItem('language','ru');localStorage.setItem('source','cub')});
+ await page.goto(base+'/app/');await page.waitForFunction(()=>window.appready===true);await page.waitForFunction(()=>Lampa.Activity.active()?.component==='main');
+ await page.evaluate(()=>{
+  window.lampa_settings.lgbt={'5_movie':true};
+  const movie={id:5,source:'tmdb',media_type:'movie',title:'Listed movie',original_title:'Listed movie',overview:'Open card',release_date:'2020-01-01',genres:[{name:'Drama'}],keywords:{keywords:[{name:'lgbt'}]},production_countries:[],production_companies:[],runtime:90,vote_average:7};
+  Lampa.Api.full=(params,done)=>setTimeout(()=>done({movie,results:[]}),0);
+  Lampa.Activity.push({component:'full',id:5,method:'movie',card:{id:5,source:'tmdb',media_type:'movie',title:'Listed movie',release_date:'2020-01-01'}});
+ });
+ await expect(page.locator('.full-start-new__title')).toHaveText('Listed movie');
+ await expect(page.locator('body')).not.toContainText('возможно содержит ЛГБТ');
+});

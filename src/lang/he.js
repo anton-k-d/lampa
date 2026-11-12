@@ -1304,10 +1304,7 @@ export default {
     install_app_apk_qr: 'סרוק את קוד ה-QR כדי להוריד את ה-APK של Lampa',
     copy_link_buffer: 'העתק קישור',
 
-    dmca_title_lgbt: 'התוכן מוגבל',
-    dmca_descr_lgbt: 'הצפייה אינה זמינה באזור שלך מכיוון שהיא עשויה להכיל תוכן להט"בי. חומר כזה עשוי להיות אסור או מוגבל במדינות מסוימות.',
 
-    settings_lgbt_content_block: 'חסימת תוכן להט"בי',
 
     // todo:
     adult_content_title: 'תוכן למבוגרים',

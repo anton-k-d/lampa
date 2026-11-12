@@ -1402,10 +1402,7 @@ export default {
     filter_keyword_disaster: 'Catastrophe',
     filter_keyword_christmas: 'Noël',
 
-    dmca_title_lgbt: 'Contenu restreint',
-    dmca_descr_lgbt: 'Visionnage restreint dans votre région (Contenu LGBT).',
 
-    settings_lgbt_content_block: 'Bloquer le contenu LGBT',
 
     // todo:
     adult_content_title: 'Contenu adulte',

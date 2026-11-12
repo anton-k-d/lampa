@@ -302,7 +302,6 @@ export default {
     settings_parental_control_disabled: 'Desactivado',
     settings_parental_control_where: 'Dónde pedir el código PIN',
 
-    settings_lgbt_content_block: 'Bloquear contenido LGBT',
 
     parental_control_input_new_code: 'Introduce el nuevo código PIN',
     parental_control_confirm_new_code: 'Confirma el código PIN',
@@ -1395,8 +1394,6 @@ export default {
 
     dmca_title: 'Contenido bloqueado',
     dmca_descr: 'Este material no está disponible. Se ha bloqueado a petición del titular de los derechos de autor, conforme a la legislación de derechos de autor.',
-    dmca_title_lgbt: 'Contenido restringido',
-    dmca_descr_lgbt: 'La reproducción no está disponible en tu región porque puede contener contenido LGBT. Este material puede estar prohibido o restringido en algunos países.',
 
     loading_progress_step_0: 'Preparación',
     loading_progress_step_1: 'Cargando idiomas',

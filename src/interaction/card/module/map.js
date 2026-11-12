@@ -10,7 +10,6 @@ import Menu from './menu'
 import Callback from '../../../core/module/callback'
 import Plugins from './plugins'
 import Subscribe from './subscribe'
-import Lgbt from './lgbt'
 import History from './history'
 
 export default {
@@ -22,7 +21,6 @@ export default {
     Plugins,
     Favorite,
     Watched,
-    Lgbt,
     Subscribe,
     Style,
     Menu,
