@@ -30,7 +30,7 @@ function request(method,path,body,mutation){
         const xhr=new XMLHttpRequest(); xhr.open(method,'/v1/devices/'+encodeURIComponent(id)+'/recommendations'+path,true); xhr.timeout=5000;
         if(body) xhr.setRequestHeader('Content-Type','application/json');
         if(mutation) xhr.setRequestHeader('Idempotency-Key',mutation);
-        xhr.onload=()=>{try {const data=JSON.parse(xhr.responseText); if(xhr.status<200||xhr.status>=300) throw requestError(data.error?.code,xhr.status,data.failure); resolve(data);} catch(e){reject(e)}};
+        xhr.onload=()=>{try {const data=JSON.parse(xhr.responseText); if(xhr.status<200||xhr.status>=300) throw requestError(data.error?.code||data.code,xhr.status,data.failure); resolve(data);} catch(e){reject(e)}};
         xhr.onerror=()=>reject(requestError('UNAVAILABLE',xhr.status)); xhr.ontimeout=()=>reject(requestError('TIMEOUT',xhr.status)); xhr.send(body?JSON.stringify(body):null);
     });
 }

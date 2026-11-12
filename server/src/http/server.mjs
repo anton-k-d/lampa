@@ -9,6 +9,7 @@ import { recommendationRoute } from './recommendation-routes.mjs';
 import { aiAdminRoute } from './ai-admin-routes.mjs';
 import { diagnosticRoute } from './diagnostic-routes.mjs';
 import { createDiagnostics } from '../diagnostics/store.mjs';
+import { failureFor } from '../recommendations/failures.mjs';
 
 const limit = 262144;
 const statusCodes = {BAD_REQUEST:400, INVALID_CONFIG:422, UNSUPPORTED_CAPABILITY:422, REVISION_CONFLICT:412, PRECONDITION_REQUIRED:428, IDEMPOTENCY_MISMATCH:409, NOT_FOUND:404, BUSY:503, TOO_LARGE:413, FORBIDDEN:403, QUOTA_EXCEEDED:429};
@@ -81,7 +82,9 @@ export function createHomeServer({repository, service, runtimeStore, adminRoot, 
     } catch (error) {
       let code = error instanceof ConfigError ? error.code : 'BAD_REQUEST';
       if (error?.issues?.some(issue => issue.code === 'unsupported_capability')) code = 'UNSUPPORTED_CAPABILITY';
-      const payload = {code,message:code === 'UNSUPPORTED_CAPABILITY' ? 'Capability is not supported by Lite' : error instanceof ConfigError ? error.message : 'Invalid request',requestId};
+      const payload = {code,message:code === 'UNSUPPORTED_CAPABILITY' ? 'Capability is not supported by Lite' : error instanceof ConfigError ? error.message : 'Invalid request',requestId,error:{code}};
+      const failure = failureFor(code);
+      if(failure.code===code) payload.failure=failure;
       if (error?.issues) payload.issues = safeIssues(error.issues);
       if (error?.currentRevision !== undefined) payload.currentRevision = error.currentRevision;
       if (!res.headersSent) {

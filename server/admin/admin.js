@@ -533,6 +533,11 @@ for (const [kind, field, reset] of [['home', 'aiHomePrompt', 'aiResetHomePrompt'
 }
 
 $('aiTest').addEventListener('click',async()=>{ try { $('aiStatus').textContent='Проверка…'; const result=await api('/v1/admin/ai/test',{method:'POST'}); $('aiStatus').textContent=result.state==='ready'?'Модель доступна.':'Проверка не удалась.'; } catch(e){$('aiStatus').textContent=e.message;} });
+$('aiResetQuota').addEventListener('click',async()=>{
+  if(!confirm('Сбросить сегодняшние счётчики запросов? Готовые подборки и журнал останутся.')) return;
+  try { const result=await api('/v1/admin/ai/quota/reset',{method:'POST'}); $('aiStatus').textContent=`Лимит на сегодня сброшен. Снято запросов: ${result.jobs}, попыток: ${result.attempts}.`; }
+  catch(e){ $('aiStatus').textContent=e.message; }
+});
 
 const diagnosticsBase = '/v1/admin/diagnostics';
 const diagnosticValue = value => value === null || value === undefined || value === '' ? 'Неизвестно' : String(value);
