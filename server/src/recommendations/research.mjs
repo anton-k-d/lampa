@@ -1,6 +1,6 @@
 import {readFileSync} from 'node:fs';
 const schema=JSON.parse(readFileSync(new URL('../../../schemas/recommendation-research.v1.schema.json',import.meta.url),'utf8'));
-export const RECOMMENDATION_TARGET=10;
+export const RECOMMENDATION_TARGET=30;
 const KEY=/^tmdb:(movie|tv):([1-9][0-9]{0,11})$/;
 const fail=code=>Object.assign(new Error(code),{code});
 export async function prepareResearchInput({records=[],seedKey=null,provider,locale='en-US',signal}){

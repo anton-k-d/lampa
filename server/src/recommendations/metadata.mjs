@@ -1,3 +1,4 @@
+import {RECOMMENDATION_TARGET} from './research.mjs';
 const KEY=/^tmdb:(movie|tv):([1-9][0-9]{0,11})$/;
 export function normalizeCard(raw,type) {
   if (!raw || !Number.isSafeInteger(raw.id) || raw.id<1 || raw.id>999999999999 || !['movie','tv'].includes(type)) return null;
@@ -46,7 +47,7 @@ export function createMetadataCatalog({baseUrl,fetchImpl=fetch,now=Date.now,cach
   }
   async function hydrateCards(keys,{locale='en-US',signal}={}) {return (await Promise.all(keys.map(async key=>{const m=KEY.exec(key);if(!m)return null;const cacheKey=JSON.stringify([key,locale,'credits']);const hit=cache.get(cacheKey);if(hit&&hit.until>now())return hit.value;const raw=await get(`/3/${m[1]}/${m[2]}`,{language:locale,append_to_response:'credits'},signal);const card=normalizeCard({...raw,genre_ids:raw.genres?.map(x=>x.id)},m[1]);if(card){Object.assign(card,researchContext(raw));save(cacheKey,card);}return card;}))).filter(Boolean);}
   async function resolveTitles(proposals,{locale='ru-RU',signal}={}) {
-    if(!Array.isArray(proposals)||proposals.length>12)throw Error('invalid proposals');
+    if(!Array.isArray(proposals)||proposals.length>RECOMMENDATION_TARGET)throw Error('invalid proposals');
     if(signal?.aborted)throw signal.reason;
     const controller=new AbortController();
     const externalAbort=()=>controller.abort(signal.reason);

@@ -76,8 +76,8 @@ test('requests ten anchored recommendations and accepts a legacy short response'
  let body;const transport=createOpenAITransport({apiKey:'secret',fetchImpl:async(_url,init)=>{body=JSON.parse(init.body);return new Response(JSON.stringify(output()),{status:200,headers:{'content-type':'application/json'}});}});
  const seed={title:'Anchor',original_title:'Anchor',year:1999,media_type:'movie',overview:'A live broadcast turns into a thriller.',genres:['Thriller']};
  const result=await recommendTitles({likedTitles:likes,similarTo:seed,transport});
- assert.equal(result.targetCount,10);assert.equal(result.proposals.length,1);
- assert.deepEqual(body.tool_choice,{type:'web_search'});assert.equal(body.text.format.schema.properties.items.minItems,undefined);assert.equal(body.text.format.schema.properties.items.maxItems,10);
+ assert.equal(result.targetCount,30);assert.equal(result.proposals.length,1);
+ assert.deepEqual(body.tool_choice,{type:'web_search'});assert.equal(body.text.format.schema.properties.items.minItems,undefined);assert.equal(body.text.format.schema.properties.items.maxItems,30);
  assert.match(body.input.at(-1).content,/Anchor: Anchor \(Anchor, 1999, movie\)/);assert.match(body.input.at(-1).content,/movies like Anchor 1999/);assert.match(body.input.at(-1).content,/live broadcast/);assert.match(body.input.at(-1).content,/Thriller/);
  assert.match(body.input[0].content,/similarTo.*primary.*(?:title.*year|year.*title)/i);assert.match(body.input[0].content,/likes.*secondary/i);assert.match(body.input[0].content,/theme.*tone.*pacing.*narrative.*stakes/i);assert.match(body.input[0].content,/English queries/i);
 });
@@ -92,7 +92,7 @@ test('classifies invalid model responses while retaining provider diagnostics',a
   ['MODEL_REFUSED',x=>{x.output[1].content=[{type:'refusal',refusal:'no'}];}],
   ['MODEL_FAILED',x=>{x.status='failed';}],
   ['INVALID_JSON',x=>{x.output_text='{';}],
-  ['INVALID_ITEMS',x=>{x.output_text=JSON.stringify({items:Array.from({length:11},(_,i)=>item(i))});}],
+  ['INVALID_ITEMS',x=>{x.output_text=JSON.stringify({items:Array.from({length:31},(_,i)=>item(i))});}],
   ['INVALID_ITEM',x=>{x.output_text=JSON.stringify({items:[item(1),{...item(2),year:'bad'}]});}],
  ];
  for(const [reason,modify] of cases){const x=structuredClone(base);modify(x);await assert.rejects(recommendTitles({likedTitles:likes,transport:{recommend:async()=>x}}),e=>{assert.equal(e.code,'invalid_response');assert.equal(e.validationReason,reason);assert.equal(e.providerRequestId,'req_test');assert.equal(e.usage.total_tokens,9);assert.deepEqual(e.trace,{requestBody:'saved'});if(reason==='INVALID_ITEM')assert.equal(e.itemIndex,1);return true;});}

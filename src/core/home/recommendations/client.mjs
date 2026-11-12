@@ -18,7 +18,7 @@ export function failureDetails(value){
     return Object.assign({code,stage:'',message:'Не удалось получить подборку',action:'Попробуйте ещё раз',retryable:true},fallbackFailures[code] || {});
 }
 export function selectionText(data){
-    const s=data && data.selection, target=data && data.targetCount || 10;
+    const s=data && data.selection, target=data && data.targetCount || 30;
     if(!s || s.returned>=target) return '';
     return s.returned+' из '+target+' · найдено в каталоге: '+s.resolved+' · исключено: '+s.excluded+' · не найдено: '+s.unresolved;
 }
