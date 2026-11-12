@@ -1,18 +1,17 @@
-name: lampa-home
 services:
   lampa:
     build:
       context: .
       dockerfile: Dockerfile.pi
     ports:
-      - "${LAMPA_BIND_IP:-127.0.0.1}:8080:8080"
+      - "${LAMPA_BIND_IP:-127.0.0.1}:${LAMPA_HOST_PORT:-8080}:8080"
     environment:
       HOST: 0.0.0.0
       PORT: 8080
       ALLOWED_HOSTS: "${LAMPA_BIND_IP:-127.0.0.1},localhost,127.0.0.1"
       DATABASE_PATH: /data/config.sqlite
     volumes:
-      - "${LAMPA_DATA_DIR:-${HOME}/.local/share/lampa-home/data}:/data"
+      - "${LAMPA_DATA_DIR:-~/.local/share/lampa-home/data}:/data"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://127.0.0.1:8080/healthz', r => { r.resume(); process.exitCode = r.statusCode === 200 ? 0 : 1; }).on('error', () => process.exitCode = 1)"]
