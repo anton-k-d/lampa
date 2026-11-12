@@ -473,6 +473,8 @@ function main(params = {}, oncomplite, onerror){
 
     Arrays.insert(parts_data, 0, Api.partPersons(parts_data, parts_limit, 'movie', start_shuffle))
 
+    ContentRows.hoist(parts_data, 'home_ai')
+
     genres.movie.forEach(genre=>{
         let event = (call)=>{
             get('discover/movie?with_genres='+genre.id,params,(json)=>{

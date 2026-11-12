@@ -58,6 +58,12 @@ function add(row){
     }
 }
 
+function hoist(calls, name){
+    let index = calls.findIndex(part => part && part.contentRow === name)
+
+    if(index > 0) calls.unshift(calls.splice(index, 1)[0])
+}
+
 function remove(row){
     let index = rows.indexOf(row)
 
@@ -101,5 +107,6 @@ export default {
     init,
     add,
     remove,
-    call
+    call,
+    hoist
 }

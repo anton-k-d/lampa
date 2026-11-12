@@ -180,6 +180,8 @@ function main(params = {}, oncomplite, onerror){
 
     if(!Permit.child_small) Arrays.insert(parts_data, 0, Api.partPersons(parts_data, parts_limit, 'movie', start_shuffle))
 
+    ContentRows.hoist(parts_data, 'home_ai')
+
     TMDB.genres.movie.filter(a=>!(a.id == 10763 || a.id == 10767)).forEach(genre=>{
         let event = (call)=>{
             get('?sort=top&genre='+genre.id+(Permit.child_small ? ',16' : ''),params,(json)=>{

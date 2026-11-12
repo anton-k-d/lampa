@@ -48,8 +48,8 @@ function makeTile(className,label){
     return tile;
 }
 export function registerRecommendationRow(ContentRows){
-    ContentRows.add({name:'home_ai',title:ROW_TITLE,screen:['main'],index:1,call(){
-        return [function(done){
+    ContentRows.add({name:'home_ai',title:ROW_TITLE,screen:['main'],index:0,call(){
+        const load=function(done){
             let settled=false;
             const finish=value=>{if(!settled){settled=true;clearTimeout(timer);done(value)}};
             const timer=setTimeout(()=>finish({results:[],title:ROW_TITLE,page:1,total_pages:1}),2500);
@@ -152,7 +152,9 @@ export function registerRecommendationRow(ContentRows){
                     }
                 }}});
             },()=>finish({results:[],title:ROW_TITLE,page:1,total_pages:1}));
-        }];
+        };
+        load.contentRow='home_ai';
+        return [load];
     }});
 }
 

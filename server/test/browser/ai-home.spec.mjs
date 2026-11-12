@@ -39,6 +39,7 @@ test('native home row reads fixture cache and uploads snapshot after initializat
  await page.addInitScript(()=>{localStorage.setItem('language','ru');localStorage.setItem('source','cub')});
  await page.goto(base+'/app/'); await page.waitForFunction(()=>window.appready===true); await expect.poll(()=>snapshots.length).toBeGreaterThan(0);
  const row=page.locator('.items-line').filter({hasText:'ИИ подборка'}).first();
+ await expect(page.locator('.items-line').first()).toContainText('ИИ подборка');
  await expect(row.locator('.items-line__title')).toHaveText('ИИ подборка');
  await expect(row.locator('.ai-home-date')).toHaveText(/\d{2}\.\d{2}\.2026 \d{2}:\d{2}/);
  await expect(row.locator('.card__title').nth(0)).toHaveText('Fixture movie');
